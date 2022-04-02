@@ -1,0 +1,33 @@
+{
+    "dirs":[
+        ".samples"
+    ],
+    "tags_for_group_view":[
+        "EXIF:DateTimeOriginal",
+        "EXIF:CreateDate",
+        "EXIF:ModifyDate"
+    ],
+    "tags_for_single_view":{
+        "Common":[
+            "File:FileCreateDate",
+            "File:FileModifyDate"
+        ],
+        "DateTime":[
+            "File:FileCreateDate",
+            "File:FileModifyDate",
+            "EXIF:DateTimeOriginal",
+            "EXIF:CreateDate",
+            "EXIF:ModifyDate",
+            "QuickTime:CreateDate",
+            "QuickTime:ModifyDate"
+        ]
+    },
+    "exiftool_params":[
+        "-P",
+        "-b",
+        "-a",
+        "-u",
+        "-U",
+        "-overwrite_original"
+    ]
+}
