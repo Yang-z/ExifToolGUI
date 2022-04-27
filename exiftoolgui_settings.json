@@ -18,12 +18,21 @@
     "QuickTime:CreateDate",
     "QuickTime:ModifyDate"
   ],
-  "exiftool_params": [
-    "-b",
-    "-P",
-    "-a",
-    "-u",
-    "-U",
-    "-overwrite_original"
-  ]
+  "exiftool_params": {
+    "fixed": [
+      "-j"
+    ],
+    "forced": [
+      "-b"
+    ],
+    "optional": [
+      "-G0:1",
+      "-n",
+      "-a",
+      "-u",
+      "-U",
+      "-P",
+      "-overwrite_original"
+    ]
+  }
 }
