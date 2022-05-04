@@ -1,6 +1,7 @@
 {
   "ui": "exiftoolgui_mainwindow.ui",
-  "dirs": [],
+  "dirs": [
+  ],
   "tags_for_group": [
     "File:FileModifyDate",
     "EXIF:DateTimeOriginal",
@@ -34,5 +35,8 @@
       "-P",
       "-overwrite_original"
     ]
+  },
+  "exiftoolgui_options": {
+    "auto_save": false
   }
 }
