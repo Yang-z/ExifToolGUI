@@ -17,10 +17,6 @@ class ExifToolGUISettings:
         return self.raw['dirs']
 
     @property
-    def exiftool_params(self) -> list:
-        return self.raw['exiftool_params']['forced'] + self.raw['exiftool_params']['optional']
-
-    @property
     def tags_for_group(self) -> list:
         return self.raw['tags_for_group']
 
@@ -37,8 +33,15 @@ class ExifToolGUISettings:
                     file_path: str = os.path.join(root, file)
                     all_files.append(file_path)
                 break
-
         return all_files
+
+    @property
+    def exiftool_params(self) -> list:
+        return self.raw['exiftool_params']['forced'] + self.raw['exiftool_params']['optional']
+
+    @property
+    def auto_save(self) -> bool:
+        return self.raw['exiftoolgui_options']['auto_save']
 
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:
