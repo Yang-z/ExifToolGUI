@@ -2,6 +2,8 @@ import os
 import locale
 import base64
 
+import datetime
+
 import exiftool
 from exiftool.helper import ExifToolExecuteError
 
@@ -25,14 +27,9 @@ class ExifToolGUIData:
             modified = self.cache_modified[file_index]
             for tag_modified in modified:
                 value_modified = modified[tag_modified]
-
-                tag_saved = ExifToolGUIData.match_tag(self.cache[file_index], tag_modified)
-                value_saved = str(self.cache[file_index].get(tag_saved, ''))
-
-                tag_failed = ExifToolGUIData.match_tag(self.cache_failed[file_index], tag_modified)
-                value_failed = self.cache_failed[file_index].get(tag_failed, None)
-
-                if(value_modified != value_saved and value_modified != value_failed):
+                value_saved = ExifToolGUIData.find(self.cache[file_index], tag_modified, '')
+                value_failed = ExifToolGUIData.find(self.cache_failed[file_index], tag_modified, None)
+                if(value_modified != str(value_saved) and value_modified != value_failed):
                     unsaved[file_index][tag_modified] = value_modified
 
         return unsaved
@@ -50,10 +47,18 @@ class ExifToolGUIData:
                 files,
                 self.settings.exiftool_params
             )
-        for m in self.cache:
-            ExifToolGUIData.fix_unicode_filename(m)
+        for file_index in range(0, len(self.cache)):
+            ExifToolGUIData.fix_unicode_filename(self.cache[file_index])
             self.cache_modified.append({})
             self.cache_failed.append({})
+
+            # handle warning
+            warning_tag = ExifToolGUIData.match_tag(self.cache[file_index], 'ExifTool:Warning')
+            message = self.cache[file_index].get(warning_tag, None)
+            if(message != None):
+                self.log(file_index, 'Warning', message)
+                self.cache[file_index].pop(warning_tag)
+        return
 
     '''
     # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
@@ -134,11 +139,8 @@ class ExifToolGUIData:
         metadata = self.cache_modified[file_index]
         tag_n = ExifToolGUIData.normalise_tag(tag)
         metadata[tag_n] = value
-        print(
-            f"set:\n" +
-            f"  file_index: {file_index}\n" +
-            f"  {tag} = {value}"
-        )
+        self.log(file_index, 'Info:Set', {tag: value})
+        # print(f"set:\n    file_index: {file_index}\n    {tag} = {value}")
 
         if(save):
             self.save()
@@ -148,8 +150,8 @@ class ExifToolGUIData:
         for file_index in range(0, len(unsaved)):
             if(len(unsaved[file_index]) == 0):
                 continue
+            self.log(file_index, 'Info:Save', str(unsaved[file_index]))
             file = self.cache[file_index]['SourceFile']
-
             # set tags to file
             with exiftool.ExifToolHelper(common_args=None) as et:
                 try:
@@ -158,9 +160,10 @@ class ExifToolGUIData:
                         unsaved[file_index],
                         self.settings.exiftool_params
                     )
-                    print(f'Save Return: "{r}"')  # nothing returns?
+                    if(r):
+                        self.log(file_index, 'Info', r)  # nothing returns?
                 except ExifToolExecuteError as e:
-                    print(e.stderr)
+                    self.log(file_index, 'Error', e.stderr)
 
             # check whether file name is changed
             file_new = file
@@ -185,7 +188,7 @@ class ExifToolGUIData:
                         self.settings.exiftool_params
                     )[0]
                 except ExifToolExecuteError as e:
-                    print(e.stderr)
+                    self.log(file_index, 'Error', e.stderr)
             ExifToolGUIData.fix_unicode_filename(result)
 
             # update source_file
@@ -195,12 +198,10 @@ class ExifToolGUIData:
                 file_new = file_return
                 self.cache[file_index]['SourceFile'] = file_new
 
-            # update waning
-            waring = result.get('ExifTool:Warning', None)
-            if(waring != None):
-                self.cache[file_index]['ExifTool:Warning'] = waring
-            elif('ExifTool:Warning' in self.cache[file_index].keys()):
-                self.cache[file_index].pop('ExifTool:Warning')
+            # handle warning
+            warning = ExifToolGUIData.find(result, 'ExifTool:Warning', None)
+            if(warning):
+                self.log(file_index, 'Warning', warning)
 
             # check result
             for tag_unsaved in unsaved[file_index]:
@@ -236,3 +237,9 @@ class ExifToolGUIData:
 
                 if(failed):
                     self.cache_failed[file_index][tag_unsaved] = value_modified
+
+    def log(self, file_index: int, type: str, message: str):
+        datetime_str = f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
+        source_file = 'None' if file_index == None else self.cache[file_index]['SourceFile']
+        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
+        print(log)
