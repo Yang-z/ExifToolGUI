@@ -373,8 +373,10 @@ class ExifToolGUI():
 
     def on_clicked__button_save(self, checked=False):
         self.data.save()
+        self.reload_table_for_group()
         self.edit_table_for_group()
-        self.edit_current_tree_for_single()
+        # self.edit_current_tree_for_single()
+        self.table_for_group.setCurrentCell(self.table_for_group.rowCount()-1,0)
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
