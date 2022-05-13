@@ -17,7 +17,7 @@ class ExifToolGUIData:
         self.cache_modified: list[dict[str, ]] = []
         self.cache_failed: list[dict[str, ]] = []
 
-        self.reload()
+        # self.reload()
 
     @property
     def cache_unsaved(self) -> list[dict[str, ]]:
@@ -27,11 +27,10 @@ class ExifToolGUIData:
             modified = self.cache_modified[file_index]
             for tag_modified in modified:
                 value_modified = modified[tag_modified]
-                value_saved = ExifToolGUIData.find(self.cache[file_index], tag_modified, '')
-                value_failed = ExifToolGUIData.find(self.cache_failed[file_index], tag_modified, None)
+                value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_modified, '')
+                value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_modified, None)
                 if(value_modified != str(value_saved) and value_modified != value_failed):
                     unsaved[file_index][tag_modified] = value_modified
-
         return unsaved
 
     def reload(self) -> None:
@@ -39,26 +38,51 @@ class ExifToolGUIData:
         self.cache_modified.clear()
         self.cache_failed.clear()
 
-        files = self.settings.files
-        if(len(files) == 0):
-            return
-        with exiftool.ExifToolHelper(common_args=None) as et:
-            self.cache = et.get_metadata(
-                files,
-                self.settings.exiftool_params
-            )
+        self.cache = self.load(self.settings.files)
+
         for file_index in range(0, len(self.cache)):
-            ExifToolGUIData.fix_unicode_filename(self.cache[file_index])
             self.cache_modified.append({})
             self.cache_failed.append({})
 
+    def load(self, files: list[str], tags: list[str] = None) -> list[dict[str, ]]:
+        if(len(files) == 0):
+            return []
+
+        with exiftool.ExifToolHelper(common_args=None) as et:
+            try:
+                result: list[dict[str, ]] = et.get_tags(
+                    files,
+                    tags,
+                    self.settings.exiftool_params
+                )
+            except ExifToolExecuteError as e:
+                self.log(str(files), 'ExifTool:Error:Get', e.stderr)
+                return None
+
+        # if local system encoding is not utf-8
+        if(locale.getpreferredencoding(False) != 'UTF-8'):
+            tags_b: list = ['File:FileName', 'File:Directory']
+            with exiftool.ExifToolHelper(common_args=None) as et:
+                temp_b: list[dict[str, ]] = et.get_tags(
+                    files,
+                    tags_b,
+                    self.settings.exiftool_params + ['-b']
+                )
+            for file_index in range(0, len(result)):
+                for tag_b in ['SourceFile'] + tags_b:
+                    ExifToolGUIData.Set(result[file_index], tag_b, ExifToolGUIData.Get(temp_b[file_index], tag_b))
+                ExifToolGUIData.Fix_Unicode_Filename(result[file_index])
+
+        for file_index in range(0, len(result)):
             # handle warning
-            warning_tag = ExifToolGUIData.match_tag(self.cache[file_index], 'ExifTool:Warning')
-            message = self.cache[file_index].get(warning_tag, None)
-            if(message != None):
-                self.log(file_index, 'Warning', message)
-                self.cache[file_index].pop(warning_tag)
-        return
+            while(True):
+                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result[file_index], 'ExifTool:Warning', None)
+                if(warning == None):
+                    break
+                self.log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
+                result[file_index].pop(tag_w)
+
+        return result
 
     '''
     # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
@@ -69,46 +93,46 @@ class ExifToolGUIData:
     # '-b' should be specified, and in this way ExifTool will code the non-utf8 values with base64,
     # and by decoding base64 string, we get the raw local-encoding-coded bytes, and a correct 
     # decoding process according to local encoding could be done.
-    # Otherwise, if python get the raw local-encoding-coded values from json, these values will be
-    # treated as UTF-8 bytes (because they come from a UTF-8 json file), and wrong decoding processes 
-    # will be carried out. And theoretically speaking, (maybe) it is still damagelessly reversible 
-    # but not implemented here.
+    # Otherwise, python can't get the raw local-encoding-coded values from json, and what json
+    # provides is a UTF-8 'validated' but irreversibly damaged value.
     '''
     @staticmethod
-    def fix_unicode_filename(metadata: dict[str, ]) -> None:
+    def Fix_Unicode_Filename(metadata: dict[str, ]) -> None:
         tags_to_be_fixed: list = [
             'SourceFile',
             'File:FileName',
             'File:Directory'
         ]
         for tag_to_be_fixed in tags_to_be_fixed:
-            tag_in_source = ExifToolGUIData.match_tag(metadata, tag_to_be_fixed)
+            tag_in_source = ExifToolGUIData.Get_Tag(metadata, tag_to_be_fixed)
             if(tag_in_source == None):
                 continue
             value: str = metadata[tag_in_source]
-            if(value and value.startswith('base64:')):
-                value_fixed = ExifToolGUIData.fix_unicode(value)
-                metadata[tag_in_source] = value_fixed
+            if(value):
+                value_fixed = ExifToolGUIData.Fix_Unicode(value)
+                if(value_fixed):
+                    metadata[tag_in_source] = value_fixed
 
     @staticmethod
-    def fix_unicode(coded: str) -> str:
-        # if(coded == None or not coded.startswith('base64:')): return coded
-        b: bytes = base64.b64decode(coded[7:])
-        # fixed:str = b.decode('gb2312')
-        fixed: str = b.decode(locale.getpreferredencoding(False))  # cp936
+    def Fix_Unicode(garbled: str) -> str:
+        if(garbled == None or not garbled.startswith('base64:')):
+            return None
+        b: bytes = base64.b64decode(garbled[7:])
+        local_encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'
+        fixed: str = b.decode(local_encoding)
         return fixed
 
     @staticmethod
-    def match_tag(metadata: dict[str, ], tag: str) -> str:
-        tag_n: str = ExifToolGUIData.normalise_tag(tag)
+    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None) -> str:
+        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
         for tag_source in metadata:
-            tag_source_n = ExifToolGUIData.normalise_tag(tag_source)
+            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
             if(tag_source_n == tag_n):
                 return tag_source
-        return None
+        return default
 
     @staticmethod
-    def normalise_tag(tag: str) -> str:
+    def Normalise_Tag(tag: str) -> str:
         if(tag == None or tag == ''):
             return tag
         tag_s: list[str] = tag.lower().split(':')
@@ -117,29 +141,63 @@ class ExifToolGUIData:
         return tag_normalised
 
     @staticmethod
-    def is_tag_equal(tag1: str, tag2: str):
-        return ExifToolGUIData.normalise_tag(tag1) == ExifToolGUIData.normalise_tag(tag2)
+    def Is_Tag_Equal(tag1: str, tag2: str):
+        return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
 
     @staticmethod
-    def find(metadata: dict[str, ], tag: str, default=None):
-        tag_matched = ExifToolGUIData.match_tag(metadata, tag)
+    def Get(metadata: dict[str, ], tag: str, default=None):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
         if(tag_matched == None):
             return default
         return metadata[tag_matched]
 
     @staticmethod
-    def get_thumbnail(metadata: list[dict[str, ]], default=None) -> bytes:
-        s: str = ExifToolGUIData.find(metadata, 'EXIF:ThumbnailImage', None)
+    def Get_Thumbnail(metadata: dict[str, ], default=None) -> bytes:
+        # ref: https://exiftool.org/forum/index.php?topic=4216
+        tag_thum: list = [
+            "ThumbnailImage",
+            "PreviewImage",
+            "OtherImage",
+            "Preview PICT",
+            "CoverArt",
+        ]
+
+        with exiftool.ExifToolHelper(common_args=None) as et:
+            temp: dict[str, ] = et.get_tags(
+                metadata['SourceFile'],
+                tag_thum,
+                ['-b']
+            )[0]
+        temp.pop('SourceFile')
+        s: str = None
+        for key in temp:
+            s = temp[key]
+            break
+
         if(s == None or not s.startswith('base64:')):
             return default
         b: bytes = base64.b64decode(s[7:])
         return b
 
-    def set(self, file_index: int, tag: str, value, save=False):
+    @staticmethod
+    def Get_Tag_A_Value(metadata: dict[str, ], tag: str, default=None):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+        if(tag_matched == None):
+            return default, default
+        return tag_matched, metadata[tag_matched]
+
+    @staticmethod
+    def Set(metadata: dict[str, ], tag: str, value):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+        if(tag_matched == None):
+            return
+        metadata[tag_matched] = value
+
+    def edit(self, file_index: int, tag: str, value, save=False):
         metadata = self.cache_modified[file_index]
-        tag_n = ExifToolGUIData.normalise_tag(tag)
+        tag_n = ExifToolGUIData.Normalise_Tag(tag)
         metadata[tag_n] = value
-        self.log(file_index, 'Info:Set', {tag: value})
+        self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
         # print(f"set:\n    file_index: {file_index}\n    {tag} = {value}")
 
         if(save):
@@ -150,8 +208,8 @@ class ExifToolGUIData:
         for file_index in range(0, len(unsaved)):
             if(len(unsaved[file_index]) == 0):
                 continue
-            self.log(file_index, 'Info:Save', str(unsaved[file_index]))
             file = self.cache[file_index]['SourceFile']
+            self.log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
             # set tags to file
             with exiftool.ExifToolHelper(common_args=None) as et:
                 try:
@@ -161,17 +219,17 @@ class ExifToolGUIData:
                         self.settings.exiftool_params
                     )
                     if(r):
-                        self.log(file_index, 'Info', r)  # nothing returns?
+                        self.log(file, 'ExifTool:Info:Set', r)  # nothing returns?
                 except ExifToolExecuteError as e:
-                    self.log(file_index, 'Error', e.stderr)
+                    self.log(file, 'ExifTool:Error:Set', e.stderr)
 
             # check whether file name is changed
             file_new = file
-            directory_new: str = ExifToolGUIData.find(unsaved[file_index], 'File:Directory', None)
-            filename_new: str = ExifToolGUIData.find(unsaved[file_index], 'File:FileName', None)
+            directory_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:Directory', None)
+            filename_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:FileName', None)
             if(filename_new != None or directory_new != None):
-                directory_old = ExifToolGUIData.find(self.cache[file_index], 'File:Directory', None)
-                filename_old = ExifToolGUIData.find(self.cache[file_index], 'File:FileName', None)
+                directory_old = ExifToolGUIData.Get(self.cache[file_index], 'File:Directory', None)
+                filename_old = ExifToolGUIData.Get(self.cache[file_index], 'File:FileName', None)
                 file_new = os.path.join(
                     directory_new if directory_new != None else directory_old,
                     filename_new if filename_new != None else filename_old
@@ -180,35 +238,24 @@ class ExifToolGUIData:
                     file_new = file
 
             # get tags for checking
-            with exiftool.ExifToolHelper(common_args=None) as et:
-                try:
-                    result: dict[str, ] = et.get_tags(
-                        file_new,
-                        list(unsaved[file_index].keys()) + ['ExifTool:Warning'],
-                        self.settings.exiftool_params
-                    )[0]
-                except ExifToolExecuteError as e:
-                    self.log(file_index, 'Error', e.stderr)
-            ExifToolGUIData.fix_unicode_filename(result)
+            result = self.load(
+                [file_new],
+                list(unsaved[file_index].keys()) + ['ExifTool:Warning'],
+            )[0]
 
             # update source_file
             if(file_new != file):
-                file_return: str = result.get('SourceFile', None)
+                file_return: str = result['SourceFile']
                 assert os.path.samefile(file_return, file_new)
                 file_new = file_return
                 self.cache[file_index]['SourceFile'] = file_new
 
-            # handle warning
-            warning = ExifToolGUIData.find(result, 'ExifTool:Warning', None)
-            if(warning):
-                self.log(file_index, 'Warning', warning)
-
             # check result
             for tag_unsaved in unsaved[file_index]:
-                tag_return = ExifToolGUIData.match_tag(result, tag_unsaved)
+                tag_return = ExifToolGUIData.Get_Tag(result, tag_unsaved)
                 value_return = result.get(tag_return, None)
 
-                tag_ = ExifToolGUIData.match_tag(self.cache[file_index], tag_unsaved)
+                tag_ = ExifToolGUIData.Get_Tag(self.cache[file_index], tag_unsaved)
                 tag = tag_ if tag_ != None else tag_return
 
                 value_modified = unsaved[file_index][tag_unsaved]
@@ -238,8 +285,8 @@ class ExifToolGUIData:
                 if(failed):
                     self.cache_failed[file_index][tag_unsaved] = value_modified
 
-    def log(self, file_index: int, type: str, message: str):
+    def log(self, source_file: str, type: str, message: str):
         datetime_str = f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        source_file = 'None' if file_index == None else self.cache[file_index]['SourceFile']
+        # source_file = 'None' if file_index == None else self.cache[file_index]['SourceFile']
         log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
         print(log)

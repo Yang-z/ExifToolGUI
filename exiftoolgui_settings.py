@@ -42,6 +42,12 @@ class ExifToolGUISettings:
     @property
     def auto_save(self) -> bool:
         return self.raw['exiftoolgui_options']['auto_save']
+    @property
+    def max_group_level(self) ->int:
+        return self.raw['exiftoolgui_options']['max_group_level']
+    @property
+    def simplify_group_level(self) -> bool:
+        return self.raw['exiftoolgui_options']['simplify_group_level']
 
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:
