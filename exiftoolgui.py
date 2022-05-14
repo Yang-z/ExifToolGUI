@@ -116,14 +116,11 @@ class ExifToolGUI():
         file_count = len(self.data.cache)
         self.table_for_group.setRowCount(file_count)
 
-        for row_i in range(0, file_count):
-            metadata = self.data.cache[row_i]
-
-            for column_i in range(0, tag_count):
-                tag = tags[column_i]
-                tag_in_source = ExifToolGUIData.Get_Tag(metadata, tag)
-                # if(tag_in_source == None): continue
-                value = metadata.get(tag_in_source, '')
+        for row in range(0, file_count):
+            metadata = self.data.cache[row]
+            for column in range(0, tag_count):
+                tag = tags[column]
+                value = ExifToolGUIData.Get(metadata, tag, '')
                 item = QTableWidgetItem(str(value))
 
                 if(tag == 'SourceFile'):
@@ -139,7 +136,7 @@ class ExifToolGUI():
                         # label.setPixmap(pic)
                         # self.table_for_group.setCellWidget(count_row,count_column,label)
 
-                self.table_for_group.setItem(row_i, column_i, item)
+                self.table_for_group.setItem(row, column, item)
 
         self.table_for_group.resizeColumnsToContents()
         self.table_for_group.resizeRowsToContents()
@@ -160,7 +157,7 @@ class ExifToolGUI():
         file_index: int = self.table_for_group.currentRow()
         metadata: dict[str, ] = self.data.cache[file_index]
         self.reload_tree_for_single(tree, metadata)
-        self.edit_tree_for_single(tree)
+        self.edit_tree_for_single(tree, strict=True)
 
     def reload_tree_for_single_custom(self):
         tree = self.tree_for_single_custom
@@ -170,8 +167,8 @@ class ExifToolGUI():
             'SourceFile': metadata['SourceFile']
         }
         for tag in self.settings.tags_for_single_custom:
-            tag_in_source = ExifToolGUIData.Get_Tag(metadata, tag)
-            metadata_temp[tag] = metadata.get(tag_in_source, '')
+            value = ExifToolGUIData.Get(metadata, tag, '')
+            metadata_temp[tag] = value
         self.reload_tree_for_single(tree, metadata_temp)
         self.edit_tree_for_single(tree)
 
@@ -238,6 +235,7 @@ class ExifToolGUI():
                             if(type_v != int and type_v != float and type_v != bool):  # and type_v != list
                                 print(f"{tag}:{type_v}")
                         item_child.setText(1, value)
+                        item_child.setText(2, tag)  # save full tag
                         # item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable)
                         # tree.openPersistentEditor(item, 1)
                 parent = child
@@ -262,7 +260,7 @@ class ExifToolGUI():
 
     def edit_table_for_group(self):
         self.table_for_group.blockSignals(True)
-        for file_index in range(0, len(self.data.cache_modified)):
+        for file_index in range(0, len(self.data.cache_edited)):
 
             # update source_file
             column_sf = self.get_cloumn__table_for_group('SourceFile')
@@ -274,7 +272,7 @@ class ExifToolGUI():
                 item_sf.setForeground(Qt.darkGreen)
 
             # update tags modified
-            metadata_modified = self.data.cache_modified[file_index]
+            metadata_modified = self.data.cache_edited[file_index]
             for tag in metadata_modified:
                 column = self.get_cloumn__table_for_group(tag)
                 if(column == None):
@@ -307,27 +305,36 @@ class ExifToolGUI():
         while(it.value()):
             item = it.value()
             if(item.childCount() == 0):
-                tag_l: list = [item.text(0)]
-                while(item.parent()):
-                    tag_l.insert(0, item.parent().text(0))
-                    item = item.parent()
-                tag_found: str = ':'.join(tag_l)
+                tag_found: str = item.text(2)
                 if(ExifToolGUIData.Is_Tag_Equal(tag_found, tag)):
                     return it.value()
             it += 1
         return None
 
+    @staticmethod
+    def get_items__tree_for_single(tree: QTreeWidget, tag: str) -> list[QTreeWidgetItem]:
+        it = QTreeWidgetItemIterator(tree)
+        items: list[QTreeWidgetItem] = []
+        while(it.value()):
+            item = it.value()
+            if(item.childCount() == 0):
+                tag_found: str = item.text(2)
+                if(ExifToolGUIData.Is_Tag_Equal(tag_found, tag)):
+                    items.append(it.value())
+            it += 1
+        return items
+
     def edit_current_tree_for_single(self):
         cur = self.tab_for_single.currentWidget().objectName()
         if(cur == 'tab_for_single_all'):
-            self.edit_tree_for_single(self.tree_for_single_all)
+            self.edit_tree_for_single(self.tree_for_single_all, strict=True)
         elif(cur == 'tab_for_single_custom'):
             self.edit_tree_for_single(self.tree_for_single_custom)
 
-    def edit_tree_for_single(self, tree: QTreeWidget):
+    def edit_tree_for_single(self, tree: QTreeWidget, strict: bool = False):
         tree.blockSignals(True)
         file_index: int = self.table_for_group.currentRow()
-        metadata_modified = self.data.cache_modified[file_index]
+        metadata_modified = self.data.cache_edited[file_index]
 
         # update source_file
         item_sf = self.get_item__tree_for_single(tree, 'SourceFile')
@@ -338,26 +345,25 @@ class ExifToolGUI():
             item_sf.setForeground(1, Qt.darkGreen)
 
         for tag in metadata_modified:
-            item = self.get_item__tree_for_single(tree, tag)
-            if(item == None):
-                continue
+            items = self.get_items__tree_for_single(tree, tag)
 
-            # modified
-            value_modified: str = metadata_modified[tag]
-            item.setText(1, value_modified)
-            item.setBackground(1, QBrush(Qt.yellow))
-            # if(value_modified == ''):
-            #     item.setBackground(0, QBrush(Qt.yellow))
+            for item in items:
+                # modified
+                value_modified: str = metadata_modified[tag]
+                item.setText(1, value_modified)
+                item.setBackground(1, QBrush(Qt.yellow))
+                # if(value_modified == ''):
+                #     item.setBackground(0, QBrush(Qt.yellow))
 
-            # check if failed
-            value_saved = ExifToolGUIData.Get(self.data.cache[file_index], tag, '')
-            if(value_modified == str(value_saved)):
-                item.setBackground(1, QBrush(Qt.green))
-            else:
-                value_failed = ExifToolGUIData.Get(self.data.cache_failed[file_index], tag, None)
-                if(value_modified == value_failed):
-                    item.setBackground(1, QBrush(Qt.red))
-                    item.setText(1, str(value_saved))
+                # check if failed
+                value_saved = ExifToolGUIData.Get(self.data.cache[file_index], item.text(2), '', strict)
+                if(value_modified == str(value_saved)):
+                    item.setBackground(1, QBrush(Qt.green))
+                else:
+                    value_failed = ExifToolGUIData.Get(self.data.cache_failed[file_index], tag, None)
+                    if(value_modified == value_failed):
+                        item.setBackground(1, QBrush(Qt.red))
+                        item.setText(1, str(value_saved))
 
         tree.blockSignals(False)
 
@@ -443,11 +449,7 @@ class ExifToolGUI():
         file_index: int = self.table_for_group.currentRow()
         value = item.text(1)
 
-        tag_l: list[str] = [item.text(0)]
-        while(item.parent()):
-            tag_l.insert(0, item.parent().text(0))
-            item = item.parent()
-        tag: str = ':'.join(tag_l)
+        tag: str = item.text(2)  # full tag
 
         self.data.edit(file_index, tag, value, save=self.settings.auto_save)
         self.edit_table_for_group()
