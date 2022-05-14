@@ -14,7 +14,7 @@ class ExifToolGUIData:
     def __init__(self, settings: ExifToolGUISettings) -> None:
         self.settings: ExifToolGUISettings = settings
         self.cache: list[dict[str, ]] = []
-        self.cache_modified: list[dict[str, ]] = []
+        self.cache_edited: list[dict[str, ]] = []
         self.cache_failed: list[dict[str, ]] = []
 
         # self.reload()
@@ -22,26 +22,26 @@ class ExifToolGUIData:
     @property
     def cache_unsaved(self) -> list[dict[str, ]]:
         unsaved: list[dict[str, ]] = []
-        for file_index in range(0, len(self.cache_modified)):
+        for file_index in range(0, len(self.cache_edited)):
             unsaved.append({})
-            modified = self.cache_modified[file_index]
-            for tag_modified in modified:
-                value_modified = modified[tag_modified]
-                value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_modified, '')
-                value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_modified, None)
+            edited = self.cache_edited[file_index]
+            for tag_edited in edited:
+                value_modified = edited[tag_edited]
+                value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_edited, '')
+                value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_edited, None)
                 if(value_modified != str(value_saved) and value_modified != value_failed):
-                    unsaved[file_index][tag_modified] = value_modified
+                    unsaved[file_index][tag_edited] = value_modified
         return unsaved
 
     def reload(self) -> None:
         self.cache.clear()
-        self.cache_modified.clear()
+        self.cache_edited.clear()
         self.cache_failed.clear()
 
         self.cache = self.load(self.settings.files)
 
         for file_index in range(0, len(self.cache)):
-            self.cache_modified.append({})
+            self.cache_edited.append({})
             self.cache_failed.append({})
 
     def load(self, files: list[str], tags: list[str] = None) -> list[dict[str, ]]:
@@ -56,7 +56,7 @@ class ExifToolGUIData:
                     self.settings.exiftool_params
                 )
             except ExifToolExecuteError as e:
-                self.log(str(files), 'ExifTool:Error:Get', e.stderr)
+                self.Log(str(files), 'ExifTool:Error:Get', e.stderr)
                 return None
 
         # if local system encoding is not utf-8
@@ -79,7 +79,7 @@ class ExifToolGUIData:
                 tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result[file_index], 'ExifTool:Warning', None)
                 if(warning == None):
                     break
-                self.log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
+                self.Log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
                 result[file_index].pop(tag_w)
 
         return result
@@ -123,13 +123,27 @@ class ExifToolGUIData:
         return fixed
 
     @staticmethod
-    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None) -> str:
+    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
+        if(tag in metadata):
+            return tag  # return the exact tag preferentially
+        if(strict):
+            return default
         tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
         for tag_source in metadata:
             tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
             if(tag_source_n == tag_n):
                 return tag_source
         return default
+
+    @staticmethod
+    def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
+        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
+        tags: list[str] = []
+        for tag_source in metadata:
+            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
+            if(tag_source_n == tag_n):
+                tags.append(tag_source)
+        return tags
 
     @staticmethod
     def Normalise_Tag(tag: str) -> str:
@@ -145,8 +159,8 @@ class ExifToolGUIData:
         return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
 
     @staticmethod
-    def Get(metadata: dict[str, ], tag: str, default=None):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+    def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag, None, strict)
         if(tag_matched == None):
             return default
         return metadata[tag_matched]
@@ -187,6 +201,14 @@ class ExifToolGUIData:
         return tag_matched, metadata[tag_matched]
 
     @staticmethod
+    def Get_Tags_A_Values(metadata: dict[str, ], tag: str):
+        tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
+        values: list = []
+        for tag_matched in tags_matched:
+            values.append(metadata[tag_matched])
+        return tags_matched, values
+
+    @staticmethod
     def Set(metadata: dict[str, ], tag: str, value):
         tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
         if(tag_matched == None):
@@ -194,10 +216,10 @@ class ExifToolGUIData:
         metadata[tag_matched] = value
 
     def edit(self, file_index: int, tag: str, value, save=False):
-        metadata = self.cache_modified[file_index]
+        metadata = self.cache_edited[file_index]
         tag_n = ExifToolGUIData.Normalise_Tag(tag)
         metadata[tag_n] = value
-        self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
+        self.Log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
         # print(f"set:\n    file_index: {file_index}\n    {tag} = {value}")
 
         if(save):
@@ -209,7 +231,7 @@ class ExifToolGUIData:
             if(len(unsaved[file_index]) == 0):
                 continue
             file = self.cache[file_index]['SourceFile']
-            self.log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
+            self.Log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
             # set tags to file
             with exiftool.ExifToolHelper(common_args=None) as et:
                 try:
@@ -219,9 +241,9 @@ class ExifToolGUIData:
                         self.settings.exiftool_params
                     )
                     if(r):
-                        self.log(file, 'ExifTool:Info:Set', r)  # nothing returns?
+                        self.Log(file, 'ExifTool:Info:Set', r)
                 except ExifToolExecuteError as e:
-                    self.log(file, 'ExifTool:Error:Set', e.stderr)
+                    self.Log(file, 'ExifTool:Error:Set', e.stderr)
 
             # check whether file name is changed
             file_new = file
@@ -245,48 +267,50 @@ class ExifToolGUIData:
 
             # update source_file
             if(file_new != file):
-                file_return: str = result['SourceFile']
+                file_return: str = result.pop('SourceFile')
                 assert os.path.samefile(file_return, file_new)
                 file_new = file_return
                 self.cache[file_index]['SourceFile'] = file_new
 
             # check result
             for tag_unsaved in unsaved[file_index]:
-                tag_return = ExifToolGUIData.Get_Tag(result, tag_unsaved)
-                value_return = result.get(tag_return, None)
-
-                tag_ = ExifToolGUIData.Get_Tag(self.cache[file_index], tag_unsaved)
-                tag = tag_ if tag_ != None else tag_return
-
-                value_modified = unsaved[file_index][tag_unsaved]
+                tags_return, values_return = ExifToolGUIData.Get_Tags_A_Values(result, tag_unsaved)
+                tags_ = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
+                value_edited = unsaved[file_index][tag_unsaved]
 
                 failed: bool = False
-
-                if(tag_return == None):
+                if(tags_return == []):
                     # update cache
-                    if(tag_ != None):
-                        self.cache[file_index].pop(tag_)
+                    if(tags_ != []):
+                        [self.cache[file_index].pop(tag_) for tag_ in tags_]
                     # check
-                    if(value_modified != ''):
+                    if(value_edited != ''):
                         # failed to add a new tag
                         failed = True
                     # else:  # successed to delete tag
                 else:
                     # update cache
-                    self.cache[file_index][tag] = value_return
-                    # check
-                    if(str(self.cache[file_index][tag]) != value_modified):
-                        # failed to:
-                        # modify the existing tag or
-                        # set tag value to '' or
-                        # delete tag
-                        failed = True
+                    for tag_ in tags_:
+                        if(tag_ not in tags_return):
+                            self.cache[file_index].pop(tag_)
+                    for i in range(0, len(tags_return)):
+                        tag_return = tags_return[i]
+                        value_return = values_return[i]
+                        self.cache[file_index][tag_return] = value_return
+
+                        # check
+                        if(str(value_return) != value_edited):
+                            # failed to:
+                            # modify the existing tag or
+                            # set tag value to '' or
+                            # delete tag
+                            failed = True
 
                 if(failed):
-                    self.cache_failed[file_index][tag_unsaved] = value_modified
+                    self.cache_failed[file_index][tag_unsaved] = value_edited
 
-    def log(self, source_file: str, type: str, message: str):
+    @staticmethod
+    def Log(source_file: str, type: str, message: str):
         datetime_str = f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        # source_file = 'None' if file_index == None else self.cache[file_index]['SourceFile']
         log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
         print(log)
