@@ -19,23 +19,17 @@
     "QuickTime:CreateDate",
     "QuickTime:ModifyDate"
   ],
-  "exiftool_params": {
-    "auto": [
-      "-j",
-      "-s",
-      "-b"
-    ],
-    "forced": [
-      "-G:0:1:2:3:4:5:6:7",
-      "-sep\n,"
-    ],
-    "optional": [
-      "-n",
-      "-a",
-      "-U",
-      "-P",
-      "-overwrite_original"
-    ]
+  "exiftool_options": {
+    "-j": "auto",
+    "-s": "auto",
+    "-b": "auto",
+    "-G:0:1:2:3:4:5:6:7": "forced",
+    "-sep ,": "forced",
+    "-n": "on",
+    "-a": "on",
+    "-U": "on",
+    "-P": "on",
+    "-overwrite_original": "on"
   },
   "exiftoolgui_options": {
     "auto_save": false,

@@ -17,8 +17,6 @@ class ExifToolGUIData:
         self.cache_edited: list[dict[str, ]] = []
         self.cache_failed: list[dict[str, ]] = []
 
-        # self.reload()
-
     @property
     def cache_unsaved(self) -> list[dict[str, ]]:
         unsaved: list[dict[str, ]] = []
@@ -183,15 +181,14 @@ class ExifToolGUIData:
                 ['-b']
             )[0]
         temp.pop('SourceFile')
-        s: str = None
-        for key in temp:
-            s = temp[key]
-            break
 
-        if(s == None or not s.startswith('base64:')):
-            return default
-        b: bytes = base64.b64decode(s[7:])
-        return b
+        for key in temp:
+            s: str = temp[key]
+            if(s.startswith('base64:')):
+                b: bytes = base64.b64decode(s[7:])
+                return b
+
+        return default
 
     @staticmethod
     def Get_Tag_A_Value(metadata: dict[str, ], tag: str, default=None):
@@ -220,7 +217,6 @@ class ExifToolGUIData:
         tag_n = ExifToolGUIData.Normalise_Tag(tag)
         metadata[tag_n] = value
         self.Log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
-        # print(f"set:\n    file_index: {file_index}\n    {tag} = {value}")
 
         if(save):
             self.save()
@@ -297,7 +293,6 @@ class ExifToolGUIData:
                         tag_return = tags_return[i]
                         value_return = values_return[i]
                         self.cache[file_index][tag_return] = value_return
-
                         # check
                         if(str(value_return) != value_edited):
                             # failed to:
@@ -311,6 +306,7 @@ class ExifToolGUIData:
 
     @staticmethod
     def Log(source_file: str, type: str, message: str):
+        message = str(message).strip()
         datetime_str = f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
         log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
         print(log)

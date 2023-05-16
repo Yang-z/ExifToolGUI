@@ -36,15 +36,21 @@ class ExifToolGUISettings:
         return all_files
 
     @property
+    def exiftool_options(self) -> dict[str, str]:
+        return self.raw['exiftool_options']
+
+    @property
     def exiftool_params(self) -> list:
-        return self.raw['exiftool_params']['forced'] + self.raw['exiftool_params']['optional']
+        return [k.replace(' ', '\n') for k, v in self.exiftool_options.items() if v == 'forced' or v == 'on']
 
     @property
     def auto_save(self) -> bool:
         return self.raw['exiftoolgui_options']['auto_save']
+
     @property
-    def max_group_level(self) ->int:
+    def max_group_level(self) -> int:
         return self.raw['exiftoolgui_options']['max_group_level']
+
     @property
     def simplify_group_level(self) -> bool:
         return self.raw['exiftoolgui_options']['simplify_group_level']

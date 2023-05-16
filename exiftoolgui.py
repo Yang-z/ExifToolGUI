@@ -1,5 +1,6 @@
 import sys
 
+from PySide6 import QtCore
 from PySide6.QtCore import *  # QFile
 from PySide6.QtUiTools import *  # QUiLoader
 from PySide6.QtWidgets import *
@@ -28,6 +29,9 @@ class ExifToolGUI():
         # # use @property to get dynamically
 
         self.adjust_main_window()
+
+        self.reload_layout_exiftool_options()
+
         self.reload_list_for_dirs()
         self.add_event_handlers()
         self.main_window.show()
@@ -76,6 +80,10 @@ class ExifToolGUI():
     def button_save(self) -> QPushButton:
         return self.main_window.findChild(QPushButton, 'button_save')
 
+    @property
+    def layout_exiftool_options(self) -> QGridLayout:
+        return self.main_window.findChild(QGridLayout, 'gridLayout_exiftoolOptions')
+
     def load_main_window(self) -> QMainWindow:
         ui_file = QFile(self.settings.ui)
         loader = QUiLoader()
@@ -97,6 +105,37 @@ class ExifToolGUI():
 
         self.tree_for_single_all.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree_for_single_custom.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+
+    def reload_layout_exiftool_options(self):
+        options = self.settings.exiftool_options
+        count_letters = 0
+        for k in options:
+            count_letters += len(k)
+        r = 0
+        c = 0
+        for k, v in options.items():
+            but = QToolButton()
+            but.setCheckable(True)
+            but.setText(k)
+            but.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+            self.layout_exiftool_options.addWidget(but, r, c, 1, len(k))
+            if(v == 'auto'):
+                but.setChecked(False)
+                but.setEnabled(False)
+            elif(v == 'forced'):
+                but.setChecked(True)
+                but.setEnabled(False)
+            elif(v == 'on'):
+                but.setChecked(True)
+                but.setEnabled(True)
+            elif(v == 'off'):
+                but.setChecked(False)
+                but.setEnabled(True)
+
+            c += len(k)
+            if c+1 > count_letters/3:
+                r += 1
+                c = 0
 
     def reload_list_for_dirs(self):
         self.list_dirs.clear()
@@ -200,7 +239,7 @@ class ExifToolGUI():
                             tag_list[j] = ''
                         else:
                             break
-                # delete empty tag groups
+                # delete empty groups
                 while(True):
                     if('' not in tag_list):
                         break
@@ -377,7 +416,9 @@ class ExifToolGUI():
         self.button_remove_dir.clicked.connect(self.on_clicked__button_remove_dir)
         self.button_save.clicked.connect(self.on_clicked__button_save)
 
-        # self.table_group.itemSelectionChanged.connect() # 点击空白也触发，但不改变currentItem()
+        # 点击空白也触发，但不改变currentItem()
+        # self.table_for_group.itemSelectionChanged.connect()
+        # 点击任意按钮，再切换tab便触发？
         self.table_for_group.currentItemChanged.connect(self.on_current_item_changed__table_for_group)
         self.table_for_group.itemChanged.connect(self.on_item_changed__table_for_group)
 
