@@ -2,7 +2,8 @@ import os
 import locale
 import base64
 
-import datetime
+from datetime import datetime, timezone, timedelta
+import re
 
 import exiftool
 from exiftool.helper import ExifToolExecuteError
@@ -24,11 +25,11 @@ class ExifToolGUIData:
             unsaved.append({})
             edited = self.cache_edited[file_index]
             for tag_edited in edited:
-                value_modified = edited[tag_edited]
+                value_edited = edited[tag_edited]
                 value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_edited, '')
                 value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_edited, None)
-                if(value_modified != str(value_saved) and value_modified != value_failed):
-                    unsaved[file_index][tag_edited] = value_modified
+                if value_edited != str(value_saved) and value_edited != value_failed:
+                    unsaved[file_index][tag_edited] = value_edited
         return unsaved
 
     def reload(self) -> None:
@@ -68,7 +69,11 @@ class ExifToolGUIData:
                 )
             for file_index in range(0, len(result)):
                 for tag_b in ['SourceFile'] + tags_b:
-                    ExifToolGUIData.Set(result[file_index], tag_b, ExifToolGUIData.Get(temp_b[file_index], tag_b))
+                    ExifToolGUIData.Set(
+                        result[file_index],
+                        tag_b,
+                        ExifToolGUIData.Get(temp_b[file_index], tag_b),
+                    )
                 ExifToolGUIData.Fix_Unicode_Filename(result[file_index])
 
         for file_index in range(0, len(result)):
@@ -119,6 +124,74 @@ class ExifToolGUIData:
         local_encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'
         fixed: str = b.decode(local_encoding)
         return fixed
+
+    @staticmethod
+    def Parse_Datetime(datetime_string: str) -> datetime:
+        dt = None
+        # try common
+        pattern = (
+            r"(?P<year>\d{4})"
+            r"(?:[-:]?(?P<month>\d{2}))?"
+            r"(?:[-:]?(?P<day>\d{2}))?"
+
+            r"(?:[ ]"
+            r"(?P<hour>\d{2})"
+            r"(?:[-:]?(?P<minute>\d{2}))"
+            r"(?:[-:]?(?P<second>\d{2}))?"
+            r"(?P<second_fractional>\.\d+)?"
+            r")?"
+
+            r"(?:[ ]?"
+            r"(?P<tz_hour>[-+]\d{2})"
+            r"(?:[-:]?(?P<tz_minute>\d{2}))?"
+            r"(?:[-:]?(?P<tz_second>\d{2}(?:\.\d+)?))?"
+            r")?"
+        )
+
+        match = re.match(pattern, datetime_string)
+        if match:
+
+            td: timedelta = None
+            if match.group('tz_hour'):
+                td = timedelta(
+                    hours=int(match.group('tz_hour')),
+                    minutes=int(match.group('tz_minute')) if match.group('tz_minute') else 0,
+                    seconds=float(match.group('tz_second')) if match.group('tz_second') else 0,
+                )
+
+            dt = datetime(
+                year=int(match.group('year')),
+                month=int(match.group('month')) if match.group('month') else 1,
+                day=int(match.group('day')) if match.group('day') else 1,
+                hour=int(match.group('hour')) if match.group('hour') else 0,
+                minute=int(match.group('minute')) if match.group('minute') else 0,
+                second=int(match.group('second')) if match.group('second') else 0,
+                microsecond=int(float(match.group('second_fractional'))*1000000) if match.group('second_fractional') else 0,
+                # microsecond is the highest precision of python datetime,
+                # so it wiil lost precision when dealing with some metadate with higher precision,
+                # such as windows file system timestamp, wich is 100ns(0.1ms).
+                tzinfo=timezone(td) if td else None,
+            )
+
+        # try iso
+        if dt == None:
+            try:
+                dt = datetime.fromisoformat(datetime_string)
+            except ValueError as e:
+                print(e)
+
+        return dt
+
+    @staticmethod
+    def Strf_Datetime(dt: datetime) -> str:
+        dt_s = None
+        if dt.tzinfo != None:
+            dt_s = str(dt).replace('-', ':')
+            # dt_s = dt.strftime(%Y:%m:%d %H:%M:%S.%f%z)
+            # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
+            return dt_s
+
+        return dt_s
 
     @staticmethod
     def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
@@ -253,6 +326,7 @@ class ExifToolGUIData:
                     filename_new if filename_new != None else filename_old
                 )
                 if(not os.path.exists(file_new)):
+                    # error happens, unhandled
                     file_new = file
 
             # get tags for checking
@@ -270,36 +344,36 @@ class ExifToolGUIData:
 
             # check result
             for tag_unsaved in unsaved[file_index]:
-                tags_return, values_return = ExifToolGUIData.Get_Tags_A_Values(result, tag_unsaved)
-                tags_ = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
+                tags_return_full, values_return = ExifToolGUIData.Get_Tags_A_Values(result, tag_unsaved)
+                tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
+                assert len(tags_cache_full) > 0
                 value_edited = unsaved[file_index][tag_unsaved]
 
                 failed: bool = False
-                if(tags_return == []):
-                    # update cache
-                    if(tags_ != []):
-                        [self.cache[file_index].pop(tag_) for tag_ in tags_]
+
+                # update cache
+                for tag_cache_full in tags_cache_full:
+                    if tag_cache_full not in tags_return_full:
+                        self.cache[file_index].pop(tag_cache_full)
+
+                for i in range(0, len(tags_return_full)):
+                    tag_return_full = tags_return_full[i]
+                    value_return = values_return[i]
+                    self.cache[file_index][tag_return_full] = value_return
+
                     # check
-                    if(value_edited != ''):
+                    if str(value_return) != value_edited:
+                        # failed to:
+                        # modify the existing tag or
+                        # set tag value to '' (delete tag)
+                        failed = True
+
+                # check
+                if len(tags_return_full) == 0:
+                    if value_edited != "":
                         # failed to add a new tag
                         failed = True
                     # else:  # successed to delete tag
-                else:
-                    # update cache
-                    for tag_ in tags_:
-                        if(tag_ not in tags_return):
-                            self.cache[file_index].pop(tag_)
-                    for i in range(0, len(tags_return)):
-                        tag_return = tags_return[i]
-                        value_return = values_return[i]
-                        self.cache[file_index][tag_return] = value_return
-                        # check
-                        if(str(value_return) != value_edited):
-                            # failed to:
-                            # modify the existing tag or
-                            # set tag value to '' or
-                            # delete tag
-                            failed = True
 
                 if(failed):
                     self.cache_failed[file_index][tag_unsaved] = value_edited
@@ -307,6 +381,17 @@ class ExifToolGUIData:
     @staticmethod
     def Log(source_file: str, type: str, message: str):
         message = str(message).strip()
-        datetime_str = f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
+        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
         log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
         print(log)
+
+
+if __name__ == "__main__":
+    date_string = "2023:05:17 15:54:30.02 +08:00:00.1"
+    print(date_string)
+
+    dt = ExifToolGUIData.Parse_Datetime(date_string)
+    print(dt)
+
+    dt_s = ExifToolGUIData.Strf_Datetime(dt)
+    print(dt_s)
