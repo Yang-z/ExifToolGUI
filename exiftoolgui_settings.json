@@ -1,6 +1,7 @@
 {
   "ui": "exiftoolgui_mainwindow.ui",
   "dirs": [
+    "//nas/home/dev/git/ExifToolGUI/.samples/1 - 副本"
   ],
   "tags_for_group": [
     "File:FileModifyDate",
@@ -35,5 +36,49 @@
     "auto_save": false,
     "max_group_level": 1,
     "simplify_group_level": true
+  },
+  "functions": {
+    "copy_value": {
+      "from_tag": {
+        "type": "tag",
+        "default": "File:FileModifyDate"
+      },
+      "to_tags": {
+        "type": "tag",
+        "default": "EXIF:DateTimeOriginal"
+      }
+    },
+    "shift_datetime": {
+      "tag": {
+        "type": "tag",
+        "default": ""
+      },
+      "to_datetime": {
+        "type": "datetime",
+        "default": ""
+      },
+      "by_timedelt": {
+        "type": "timedelt",
+        "default": ""
+      }
+    },
+    "test_func": {
+      "p1": {
+        "type": "tag",
+        "default": ""
+      },
+      "p2": {
+        "type": "datetime",
+        "default": ""
+      },
+      "p3": {
+        "type": "timedelt",
+        "default": ""
+      },
+      "p4": {
+        "type": "bool",
+        "default": false
+      }
+    }
   }
 }

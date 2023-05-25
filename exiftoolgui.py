@@ -17,8 +17,8 @@ class ExifToolGUI():
         self.app: QApplication = QApplication(sys.argv)
         # apply_stylesheet(self.app, theme='dark_teal.xml')
 
-        self.settings: ExifToolGUISettings = ExifToolGUISettings()
-        self.data: ExifToolGUIData = ExifToolGUIData(self.settings)
+        self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+        self.data: ExifToolGUIData = ExifToolGUIData.Instance
 
         self.main_window: QMainWindow = self.load_main_window()
 
@@ -30,9 +30,12 @@ class ExifToolGUI():
 
         self.adjust_main_window()
 
-        self.reload_layout_exiftool_options()
+        self.load_layout_exiftool_options()
 
         self.reload_list_for_dirs()
+
+        self.load_comboBox_functions()
+
         self.add_event_handlers()
         self.main_window.show()
         sys.exit(self.app.exec())
@@ -84,6 +87,18 @@ class ExifToolGUI():
     def layout_exiftool_options(self) -> QGridLayout:
         return self.main_window.findChild(QGridLayout, 'gridLayout_exiftoolOptions')
 
+    @property
+    def comboBox_functions(self) -> QComboBox:
+        return self.main_window.findChild(QComboBox, 'comboBox_functions')
+
+    @property
+    def groupBox_parameters(self) -> QGroupBox:
+        return self.main_window.findChild(QGroupBox, 'groupBox_parameters')
+
+    @property
+    def pushButton_functions_exec(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'pushButton_functions_exec')
+
     def load_main_window(self) -> QMainWindow:
         ui_file = QFile(self.settings.ui)
         loader = QUiLoader()
@@ -94,6 +109,23 @@ class ExifToolGUI():
     '''################################################################
     Reload UI
     ################################################################'''
+    @staticmethod
+    def clear_layout(layout: QLayout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            sub_layout = item.layout()
+
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+            elif sub_layout:
+                ExifToolGUI.clear_layout(sub_layout)
+                sub_layout.setParent(None)
+                sub_layout.deleteLater()
+
+            # layout.removeItem(item)
+            del item
 
     def adjust_main_window(self):
         # this should be done by designer, but...
@@ -106,31 +138,32 @@ class ExifToolGUI():
         self.tree_for_single_all.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree_for_single_custom.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
 
-    def reload_layout_exiftool_options(self):
+    def load_layout_exiftool_options(self):
         options = self.settings.exiftool_options
+        layout: QGridLayout = self.layout_exiftool_options
         count_letters = 0
         for k in options:
             count_letters += len(k)
         r = 0
         c = 0
         for k, v in options.items():
-            but = QToolButton()
-            but.setCheckable(True)
-            but.setText(k)
-            but.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-            self.layout_exiftool_options.addWidget(but, r, c, 1, len(k))
+            butt = QToolButton()
+            butt.setCheckable(True)
+            butt.setText(k)
+            butt.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+            layout.addWidget(butt, r, c, 1, len(k))  # auto clear?
             if v == 'auto':
-                but.setChecked(False)
-                but.setEnabled(False)
+                butt.setChecked(False)
+                butt.setEnabled(False)
             elif v == 'forced':
-                but.setChecked(True)
-                but.setEnabled(False)
+                butt.setChecked(True)
+                butt.setEnabled(False)
             elif v == 'on':
-                but.setChecked(True)
-                but.setEnabled(True)
+                butt.setChecked(True)
+                butt.setEnabled(True)
             elif v == 'off':
-                but.setChecked(False)
-                but.setEnabled(True)
+                butt.setChecked(False)
+                butt.setEnabled(True)
 
             c += len(k)
             if c+1 > count_letters/3:
@@ -138,8 +171,9 @@ class ExifToolGUI():
                 c = 0
 
     def reload_list_for_dirs(self):
-        self.list_dirs.clear()
-        self.list_dirs.addItems(self.settings.dirs)
+        list_dirs: QListWidget = self.list_dirs
+        list_dirs.clear()
+        list_dirs.addItems(self.settings.dirs)
         self.data.reload()
         self.reload_table_for_group()
 
@@ -286,6 +320,36 @@ class ExifToolGUI():
 
         tree.blockSignals(False)
 
+    def load_comboBox_functions(self):
+        comboBox_functions: QComboBox = self.comboBox_functions
+        for key, value in self.settings.functions.items():
+            comboBox_functions.addItem(key, value)
+
+        self.reload_groupBox_parameters()
+
+    def reload_groupBox_parameters(self):
+        comboBox_functions: QComboBox = self.comboBox_functions
+        current_date: dict[str, dict[str,]] = comboBox_functions.currentData()
+
+        groupBox_parameters: QGroupBox = self.groupBox_parameters
+        layout: QGridLayout = groupBox_parameters.layout()
+        ExifToolGUI.clear_layout(layout)
+
+        r: int = 0
+        c: int = 0
+        for key, value in current_date.items():
+            sub_layout: QHBoxLayout = QHBoxLayout()
+            layout.addLayout(sub_layout, r, c)
+
+            lable: QLabel = QLabel(key)
+            sub_layout.addWidget(lable)
+            lineEdit: QLineEdit = QLineEdit(str(value['default']))
+            sub_layout.addWidget(lineEdit)
+            r += 1
+            if r == 3:
+                r = 0
+                c += 1
+
     '''################################################################
     Editting and results
     ################################################################'''
@@ -406,6 +470,31 @@ class ExifToolGUI():
 
         tree.blockSignals(False)
 
+    def get_results__functions_parameters(self)-> tuple[str, dict[str,]]:
+        func:str = self.comboBox_functions.currentText()
+
+        dict_args: dict[str,] = {}
+
+        dict_args['file_indexes'] = []
+        table: QTableWidget = self.table_for_group
+        for item in table.selectedItems():
+            row = item.row()
+            if row not in dict_args['file_indexes']:
+                dict_args['file_indexes'].append(row)
+
+        layout: QGridLayout = self.groupBox_parameters.layout()
+        for column in range(layout.columnCount()):
+            for row in range(layout.rowCount()):
+                item = layout.itemAtPosition(row, column)
+                if item:
+                    sub_layout: QHBoxLayout = item.layout()
+                    if sub_layout:
+                        lable: QLabel = sub_layout.itemAt(0).widget()
+                        lineEdit: QLineEdit = sub_layout.itemAt(1).widget()
+                        dict_args[lable.text()] = lineEdit.text()
+
+        return func, dict_args
+
     '''################################################################
     Event Handlers
     ################################################################'''
@@ -431,6 +520,9 @@ class ExifToolGUI():
         self.tree_for_single_custom.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)
         self.tree_for_single_custom.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)
         self.tree_for_single_custom.itemChanged.connect(self.on_item_changed__tree_for_single)
+
+        self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged_4_comboBox_functions)
+        self.pushButton_functions_exec.clicked.connect(self.on_clicked__pushButton_functions_exec)
 
     def on_clicked__button_save(self, checked=False):
         self.data.save()
@@ -495,6 +587,19 @@ class ExifToolGUI():
         self.data.edit(file_index, tag, value, save=self.settings.auto_save)
         self.edit_table_for_group()
         # self.edit_tree_for_single(item.treeWidget())
+        self.edit_current_tree_for_single()
+
+    def on_currentIndexChanged_4_comboBox_functions(self, index):
+        self.reload_groupBox_parameters()
+
+    def on_clicked__pushButton_functions_exec(self):
+        func, args = self.get_results__functions_parameters()
+        print(func)
+        print(args)
+        from exiftoolgui_functions import ExifToolGUIFuncs
+
+        ExifToolGUIFuncs.Exec(func, args)
+        self.edit_table_for_group()
         self.edit_current_tree_for_single()
 
 

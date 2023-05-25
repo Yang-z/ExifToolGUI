@@ -12,8 +12,17 @@ from exiftoolgui_settings import ExifToolGUISettings
 
 
 class ExifToolGUIData:
-    def __init__(self, settings: ExifToolGUISettings) -> None:
-        self.settings: ExifToolGUISettings = settings
+    _instance: 'ExifToolGUIData' = None
+
+    @classmethod
+    @property
+    def Instance(cls) -> 'ExifToolGUIData':
+        if cls._instance == None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self) -> None:
+        self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
         self.cache: list[dict[str, ]] = []
         self.cache_edited: list[dict[str, ]] = []
         self.cache_failed: list[dict[str, ]] = []
@@ -150,7 +159,6 @@ class ExifToolGUIData:
 
         match = re.match(pattern, datetime_string)
         if match:
-
             td: timedelta = None
             if match.group('tz_hour'):
                 td = timedelta(
@@ -179,8 +187,6 @@ class ExifToolGUIData:
                 dt = datetime.fromisoformat(datetime_string)
             except ValueError as e:
                 print(e)
-
-        return dt
 
     @staticmethod
     def Strf_Datetime(dt: datetime) -> str:

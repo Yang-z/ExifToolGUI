@@ -1,8 +1,18 @@
 import json
 import os
 
+from collections import OrderedDict
 
 class ExifToolGUISettings:
+    _instance: 'ExifToolGUISettings' = None
+
+    @classmethod
+    @property
+    def Instance(cls) -> 'ExifToolGUISettings':
+        if cls._instance == None:
+            cls._instance = cls()
+        return cls._instance
+
     def __init__(self) -> None:
         self.source_file = 'exiftoolgui_settings.json'
         self.raw: dict = None
@@ -55,9 +65,13 @@ class ExifToolGUISettings:
     def simplify_group_level(self) -> bool:
         return self.raw['exiftoolgui_options']['simplify_group_level']
 
+    @property
+    def functions(self)-> dict[str,dict[str,dict[str,]]]:
+        return self.raw['functions']
+
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:
-            self.raw: dict = json.load(f)
+            self.raw: dict = json.load(f, object_pairs_hook=OrderedDict)
 
     def save(self) -> dict:
         with open(self.source_file, 'w', encoding='utf-8') as f:
@@ -70,3 +84,9 @@ class ExifToolGUISettings:
     def remove_dir(self, dir: str):
         self.dirs.remove(dir)
         self.save()
+
+
+if __name__ == "__main__":
+    settings:ExifToolGUISettings = ExifToolGUISettings.Instance
+    
+    print(settings.functions)
