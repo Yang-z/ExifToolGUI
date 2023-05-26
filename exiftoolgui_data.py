@@ -8,6 +8,7 @@ import re
 import exiftool
 from exiftool.helper import ExifToolExecuteError
 
+from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
 
 
@@ -67,6 +68,33 @@ class ExifToolGUIData:
                 self.Log(str(files), 'ExifTool:Error:Get', e.stderr)
                 return None
 
+        # handle unicode
+        self.fix_unicode_filename(files, result)
+
+        # handle warning
+        for file_index in range(0, len(result)):
+            while True:
+                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result[file_index], 'ExifTool:Warning', None)
+                if warning == None:
+                    break
+                self.Log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
+                result[file_index].pop(tag_w)
+
+        return result
+
+    def fix_unicode_filename(self, files: list[str], result: list[dict[str, ]]) -> None:
+        '''
+        # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
+        # Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
+        # See: https://exiftool.org/forum/index.php?topic=13473
+        # Here is a temporary method to fix this problem.
+        # Notice: 
+        # '-b' should be specified, and in this way ExifTool will code the non-utf8 values with base64,
+        # and by decoding base64 string, we get the raw local-encoding-coded bytes, and a correct 
+        # decoding process according to local encoding could be done.
+        # Otherwise, python can't get the raw local-encoding-coded values from json, and what json
+        # provides is a UTF-8 'validated' but irreversibly damaged value.
+        '''
         # if local system encoding is not utf-8
         if locale.getpreferredencoding(False) != 'UTF-8':
             tags_b: list = ['File:FileName', 'File:Directory']
@@ -78,126 +106,10 @@ class ExifToolGUIData:
                 )
             for file_index in range(0, len(result)):
                 for tag_b in ['SourceFile'] + tags_b:
-                    ExifToolGUIData.Set(
-                        result[file_index],
-                        tag_b,
-                        ExifToolGUIData.Get(temp_b[file_index], tag_b),
-                    )
-                ExifToolGUIData.Fix_Unicode_Filename(result[file_index])
-
-        for file_index in range(0, len(result)):
-            # handle warning
-            while True:
-                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result[file_index], 'ExifTool:Warning', None)
-                if warning == None:
-                    break
-                self.Log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
-                result[file_index].pop(tag_w)
-
-        return result
-
-    '''
-    # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
-    # Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
-    # See: https://exiftool.org/forum/index.php?topic=13473
-    # Here is a temporary method to fix this problem.
-    # Notice: 
-    # '-b' should be specified, and in this way ExifTool will code the non-utf8 values with base64,
-    # and by decoding base64 string, we get the raw local-encoding-coded bytes, and a correct 
-    # decoding process according to local encoding could be done.
-    # Otherwise, python can't get the raw local-encoding-coded values from json, and what json
-    # provides is a UTF-8 'validated' but irreversibly damaged value.
-    '''
-    @staticmethod
-    def Fix_Unicode_Filename(metadata: dict[str, ]) -> None:
-        tags_to_be_fixed: list = [
-            'SourceFile',
-            'File:FileName',
-            'File:Directory'
-        ]
-        for tag_to_be_fixed in tags_to_be_fixed:
-            tag_in_source = ExifToolGUIData.Get_Tag(metadata, tag_to_be_fixed)
-            if tag_in_source == None:
-                continue
-            value: str = metadata[tag_in_source]
-            if value:
-                value_fixed = ExifToolGUIData.Fix_Unicode(value)
-                if value_fixed:
-                    metadata[tag_in_source] = value_fixed
-
-    @staticmethod
-    def Fix_Unicode(garbled: str) -> str:
-        if garbled == None or not garbled.startswith('base64:'):
-            return None
-        b: bytes = base64.b64decode(garbled[7:])
-        local_encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'
-        fixed: str = b.decode(local_encoding)
-        return fixed
-
-    @staticmethod
-    def Parse_Datetime(datetime_string: str) -> datetime:
-        dt = None
-        # try common
-        pattern = (
-            r"(?P<year>\d{4})"
-            r"(?:[-:]?(?P<month>\d{2}))?"
-            r"(?:[-:]?(?P<day>\d{2}))?"
-
-            r"(?:[ ]"
-            r"(?P<hour>\d{2})"
-            r"(?:[-:]?(?P<minute>\d{2}))"
-            r"(?:[-:]?(?P<second>\d{2}))?"
-            r"(?P<second_fractional>\.\d+)?"
-            r")?"
-
-            r"(?:[ ]?"
-            r"(?P<tz_hour>[-+]\d{2})"
-            r"(?:[-:]?(?P<tz_minute>\d{2}))?"
-            r"(?:[-:]?(?P<tz_second>\d{2}(?:\.\d+)?))?"
-            r")?"
-        )
-
-        match = re.match(pattern, datetime_string)
-        if match:
-            td: timedelta = None
-            if match.group('tz_hour'):
-                td = timedelta(
-                    hours=int(match.group('tz_hour')),
-                    minutes=int(match.group('tz_minute')) if match.group('tz_minute') else 0,
-                    seconds=float(match.group('tz_second')) if match.group('tz_second') else 0,
-                )
-
-            dt = datetime(
-                year=int(match.group('year')),
-                month=int(match.group('month')) if match.group('month') else 1,
-                day=int(match.group('day')) if match.group('day') else 1,
-                hour=int(match.group('hour')) if match.group('hour') else 0,
-                minute=int(match.group('minute')) if match.group('minute') else 0,
-                second=int(match.group('second')) if match.group('second') else 0,
-                microsecond=int(float(match.group('second_fractional'))*1000000) if match.group('second_fractional') else 0,
-                # microsecond is the highest precision of python datetime,
-                # so it wiil lost precision when dealing with some metadate with higher precision,
-                # such as windows file system timestamp, wich is 100ns(0.1ms).
-                tzinfo=timezone(td) if td else None,
-            )
-
-        # try iso
-        if dt == None:
-            try:
-                dt = datetime.fromisoformat(datetime_string)
-            except ValueError as e:
-                print(e)
-
-    @staticmethod
-    def Strf_Datetime(dt: datetime) -> str:
-        dt_s = None
-        if dt.tzinfo != None:
-            dt_s = str(dt).replace('-', ':')
-            # dt_s = dt.strftime(%Y:%m:%d %H:%M:%S.%f%z)
-            # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
-            return dt_s
-
-        return dt_s
+                    maybe_base64 = ExifToolGUIData.Get(temp_b[file_index], tag_b)
+                    fixed = ExifToolGUIAide.Base64_to_Str(maybe_base64)
+                    if fixed:
+                        ExifToolGUIData.Set(result[file_index], tag_b, fixed)
 
     @staticmethod
     def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
@@ -393,11 +305,4 @@ class ExifToolGUIData:
 
 
 if __name__ == "__main__":
-    date_string = "2023:05:17 15:54:30.02 +08:00:00.1"
-    print(date_string)
-
-    dt = ExifToolGUIData.Parse_Datetime(date_string)
-    print(dt)
-
-    dt_s = ExifToolGUIData.Strf_Datetime(dt)
-    print(dt_s)
+    pass

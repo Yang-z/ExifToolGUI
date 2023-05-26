@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 
+from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_data import ExifToolGUIData
 
 
@@ -23,7 +24,7 @@ class ExifToolGUIFuncs:
 
         self.funcs = {
         'copy_value':self.copy_value,
-
+        'shift_datetime':self.shift_datetime
         }
 
     def copy_value(self, file_indexes: list[int], from_tag: str, to_tags: str) -> None:
@@ -34,31 +35,19 @@ class ExifToolGUIFuncs:
             for to_tag in list_to_tags:
                 self.data.edit(i, to_tag, value)
 
-    def shift_datetime_to(self, file_indexes: list[int], destination_tag: str, destination_datetime: str, ref: int) -> None:
-        ref_datetime = ExifToolGUIData.Parse_Datetime(ExifToolGUIData.Get(self.data.cache[ref], destination_tag))
-        dst_datetime = ExifToolGUIData.Parse_Datetime(destination_tag)
+    def shift_datetime(self, file_indexes: list[int], ref: int, tag: str, to_datetime: str, by_timedelt:str) -> None:
+        ref_datetime = ExifToolGUIAide.Str_to_Datetime(ExifToolGUIData.Get(self.data.cache[ref], tag))
+        dst_datetime = ExifToolGUIAide.Str_to_Datetime(tag)
         td: timedelta = dst_datetime - ref_datetime
 
         for i in file_indexes:
             if i == ref:
                 continue
-            original_value = ExifToolGUIData.Get(self.data.cache[i], destination_tag)
-            original_dt = ExifToolGUIData.Parse_Datetime(original_value)
+            original_value = ExifToolGUIData.Get(self.data.cache[i], tag)
+            original_dt = ExifToolGUIAide.Str_to_Datetime(original_value)
             shifted_dt = original_dt + td
-            self.data.edit(i, destination_tag, ExifToolGUIData.Strf_Datetime(shifted_dt))
+            self.data.edit(i, tag, ExifToolGUIAide.Datetime_to_Str(shifted_dt))
 
 
 if __name__ == "__main__":
-    date_string = "2008:05:30 15:54:30.01"
-    dt = datetime.fromisoformat(date_string)
-    # dt = parser.parse(date_string)
-    print(dt)
-    if dt.tzinfo == None:
-        dt = dt.replace(tzinfo=timezone(timedelta(hours=8)))
-    print(dt)
-
-    interval_string = "00010110 053022"
-    delta = datetime.fromisoformat(interval_string)
-    print(delta)
-
-    print("end")
+    pass
