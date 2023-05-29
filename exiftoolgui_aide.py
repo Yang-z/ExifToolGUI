@@ -17,7 +17,10 @@ class ExifToolGUIAide:
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str) -> datetime:
+    def Str_to_Datetime(datetime_str: str, default_timezone: str) -> datetime:
+        # default_tz, a option for users to avoid naive datetime
+        tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
+
         dt = None
         # try common
         pattern = (
@@ -39,7 +42,7 @@ class ExifToolGUIAide:
 
         match = re.match(pattern, datetime_str)
         if match:
-            tz = None
+            # tz = default_tz
             if match.group('tz'):
                 tz = ExifToolGUIAide.Str_to_Timezone(match.group('tz'))
             dt = datetime(

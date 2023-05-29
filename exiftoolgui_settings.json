@@ -61,7 +61,7 @@
         "type": "timedelt",
         "default": ""
       },
-      "timezone": {
+      "default_timezone": {
         "type": "timezone",
         "default":""
       }

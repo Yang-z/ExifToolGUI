@@ -34,30 +34,23 @@ class ExifToolGUIFuncs:
             for to_tag in list_to_tags:
                 self.data.edit(i, to_tag, value)
 
-    def shift_datetime(self, file_indexes: list[int], ref: int, tag: str, to_datetime: str, by_timedelt: str, timezone: str) -> None:
-        default_tz = ExifToolGUIAide.Str_to_Timezone(timezone)
+    def shift_datetime(self, file_indexes: list[int], ref: int, tag: str, to_datetime: str, by_timedelt: str, default_timezone: str) -> None:
+        # default_tz:timezone = ExifToolGUIAide.Str_to_Timezone(default_timezone)
 
         td:timedelta = None
         if to_datetime:
-            ref_dt = ExifToolGUIAide.Str_to_Datetime(ExifToolGUIData.Get(self.data.cache[ref], tag))
-            if ref_dt.tzinfo == None:
-                ref_dt = ref_dt.replace(tzinfo=default_tz)
-            
-            to_dt = ExifToolGUIAide.Str_to_Datetime(to_datetime)
-            if to_dt.tzinfo == None:
-                to_dt = to_dt.replace(tzinfo=default_tz)
-
+            ref_dt = ExifToolGUIAide.Str_to_Datetime(ExifToolGUIData.Get(self.data.cache[ref], tag), default_timezone)
+            to_dt = ExifToolGUIAide.Str_to_Datetime(to_datetime, default_timezone)
             td = to_dt - ref_dt
         else:
             td = ExifToolGUIAide.Str_to_Timedelt(by_timedelt)
 
         for i in file_indexes:
-            original_value = ExifToolGUIData.Get(self.data.cache[i], tag)
-            original_dt = ExifToolGUIAide.Str_to_Datetime(original_value)
-            if original_dt.tzinfo == None:
-                original_dt = original_dt.replace(tzinfo=default_tz)
-
+            original_dt_str = ExifToolGUIData.Get(self.data.cache[i], tag)
+            original_dt = ExifToolGUIAide.Str_to_Datetime(original_dt_str, default_timezone)
             shifted_dt = original_dt + td
+            shifted_dt_str = ExifToolGUIAide.Datetime_to_Str(shifted_dt)
+            # if shifted_dt_str != original_dt_str:
             self.data.edit(i, tag, ExifToolGUIAide.Datetime_to_Str(shifted_dt))
 
     def sort_datetime(self, file_indexes: list[int], tag: str):
