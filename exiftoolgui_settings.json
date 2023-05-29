@@ -51,7 +51,7 @@
     "shift_datetime": {
       "tag": {
         "type": "tag",
-        "default": ""
+        "default": "EXIF:DateTimeOriginal"
       },
       "to_datetime": {
         "type": "datetime",
@@ -60,6 +60,10 @@
       "by_timedelt": {
         "type": "timedelt",
         "default": ""
+      },
+      "timezone": {
+        "type": "timezone",
+        "default":""
       }
     },
     "test_func": {

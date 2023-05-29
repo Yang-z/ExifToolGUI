@@ -33,22 +33,15 @@ class ExifToolGUIAide:
             r")?"
 
             r"(?:[ ]?"
-            r"(?P<tz_hour>[-+]\d{2})"
-            r"(?:[-:]?(?P<tz_minute>\d{2}))?"
-            r"(?:[-:]?(?P<tz_second>\d{2}(?:\.\d+)?))?"
+            r"(?P<tz>[-+]\d{2}(?:[-:]?\d{2})?(?:[-:]?\d{2}(?:\.\d+)?)?)"
             r")?"
         )
 
         match = re.match(pattern, datetime_str)
         if match:
-            td: timedelta = None
-            if match.group('tz_hour'):
-                td = timedelta(
-                    hours=int(match.group('tz_hour')),
-                    minutes=int(match.group('tz_minute')) if match.group('tz_minute') else 0,
-                    seconds=float(match.group('tz_second')) if match.group('tz_second') else 0,
-                )
-
+            tz = None
+            if match.group('tz'):
+                tz = ExifToolGUIAide.Str_to_Timezone(match.group('tz'))
             dt = datetime(
                 year=int(match.group('year')),
                 month=int(match.group('month')) if match.group('month') else 1,
@@ -60,7 +53,7 @@ class ExifToolGUIAide:
                 # microsecond is the highest precision of python datetime,
                 # so it wiil lost precision when dealing with some metadate with higher precision,
                 # such as windows file system timestamp, wich is 100ns(0.1ms).
-                tzinfo=timezone(td) if td else None,
+                tzinfo=tz,
             )
 
         # try iso
@@ -75,15 +68,66 @@ class ExifToolGUIAide:
     @staticmethod
     def Datetime_to_Str(dt: datetime) -> str:
         dt_s = None
-        if dt.tzinfo != None:
-            dt_s = str(dt).replace('-', ':')
-            # dt_s = dt.strftime(%Y:%m:%d %H:%M:%S.%f%z)
-            # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
+
+        # dt_s = str(dt).replace('-', ':')
+        # dt_s = dt.strftime('%Y:%m:%d %H:%M:%S.%f%z')
+        # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
+
+        # dt_s = dt.strftime('%Y:%m:%d %H:%M:%S.%f') + str(dt.tzinfo).replace('UTC', '')
+        dt_s = str(dt.replace(tzinfo=None)).replace('-', ':')
+        if dt.tzinfo:
+            dt_s += str(dt.tzinfo).replace('UTC', '')
+
         return dt_s
+
+    @staticmethod
+    def Str_to_Timezone(timezone_str: str) -> timezone:
+        tz = None
+        pattern = (
+            r"(?:(?P<positive>[-+])[ ]?)"
+
+            r"(?:(?P<tz_hour>\d{2}))"
+            r"(?:[:]?(?P<tz_minute>\d{2}))?"
+            r"(?:[:]?(?P<tz_second>\d{2}(?:\.\d+)?))?"
+        )
+        match = re.match(pattern, timezone_str)
+        if match:
+            positive: int = -1 if match.group('positive') and match.group('positive') == '-' else 1
+            td = timedelta(
+                hours=int(match.group('tz_hour')) * positive,
+                minutes=int(match.group('tz_minute')) * positive if match.group('tz_minute') else 0,
+                seconds=float(match.group('tz_second')) * positive if match.group('tz_second') else 0,
+            )
+            tz = timezone(td)
+            
+        return tz
+
+    @staticmethod
+    def Str_to_Timedelt(td_str: str) ->timezone:
+        td: timedelta = None
+        pattern = (
+            r"(?:(?P<positive>[-+])[ ]?)?"
+
+            r"(?:(?P<day>\d+)[ ])?"
+
+            r"(?:(?=\d+:\d+:\d+)(?P<hour>\d+)[-:])?"
+            r"(?:(?=\d+:\d+)(?P<minute>\d+)[-:])?"
+            r"(?:(?P<second>\d+(?:\.\d+)?))"
+        )
+        match = re.match(pattern, td_str)
+        if match:
+            positive: int = -1 if match.group('positive') and match.group('positive') == '-' else 1
+            td = timedelta(
+                days=int(match.group('day')) * positive if match.group('day') else 0,
+                hours=int(match.group('hour')) * positive if match.group('hour') else 0,
+                minutes=int(match.group('minute')) * positive if match.group('minute') else 0,
+                seconds=float(match.group('second')) * positive,
+            )
+        return td
 
 
 if __name__ == "__main__":
-    date_string = "2023:05:17 15:54:30.02 +08:00:00.1"
+    date_string = "2023:05:17 15:54:30.00 -08:00:00"
     print(date_string)
 
     dt = ExifToolGUIAide.Str_to_Datetime(date_string)
@@ -91,3 +135,11 @@ if __name__ == "__main__":
 
     dt_s = ExifToolGUIAide.Datetime_to_Str(dt)
     print(dt_s)
+
+    td_str = "-1.5"
+    print(ExifToolGUIAide.Str_to_Timedelt(td_str))
+
+    tz_str = "+0800"
+    tz = ExifToolGUIAide.Str_to_Timezone(tz_str)
+    print(str(tz))
+    

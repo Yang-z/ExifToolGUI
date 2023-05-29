@@ -482,6 +482,8 @@ class ExifToolGUI():
             if row not in dict_args['file_indexes']:
                 dict_args['file_indexes'].append(row)
 
+        dict_args['ref'] = table.currentRow()
+
         layout: QGridLayout = self.groupBox_parameters.layout()
         for column in range(layout.columnCount()):
             for row in range(layout.rowCount()):
