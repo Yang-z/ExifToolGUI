@@ -3,6 +3,7 @@ import os
 
 from collections import OrderedDict
 
+
 class ExifToolGUISettings:
     _instance: 'ExifToolGUISettings' = None
 
@@ -18,9 +19,16 @@ class ExifToolGUISettings:
         self.raw: dict = None
         self.load()
 
+    def __getitem__(self, key):
+        return self.raw[key]
+
     @property
     def ui(self) -> str:
         return self.raw['ui']
+
+    @property
+    def assets_no_preview(self) -> str:
+        return self.raw['assets']['no_preview']
 
     @property
     def dirs(self) -> list:
@@ -66,7 +74,7 @@ class ExifToolGUISettings:
         return self.raw['exiftoolgui_options']['simplify_group_level']
 
     @property
-    def functions(self)-> dict[str,dict[str,dict[str,]]]:
+    def functions(self) -> dict[str, dict[str, dict[str,]]]:
         return self.raw['functions']
 
     def load(self) -> dict:
@@ -87,6 +95,6 @@ class ExifToolGUISettings:
 
 
 if __name__ == "__main__":
-    settings:ExifToolGUISettings = ExifToolGUISettings.Instance
-    
+    settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+
     print(settings.functions)

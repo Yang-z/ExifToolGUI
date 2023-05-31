@@ -12,7 +12,7 @@ class ExifToolGUIAide:
             return None
         b: bytes = base64.b64decode(base64_str[7:])
         if encoding == None:
-            encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'
+            encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
         fixed: str = b.decode(encoding)
         return fixed
 

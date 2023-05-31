@@ -65,7 +65,7 @@ class ExifToolGUIData:
                     self.settings.exiftool_params
                 )
             except ExifToolExecuteError as e:
-                self.Log(str(files), 'ExifTool:Error:Get', e.stderr)
+                ExifToolGUIData.Log(str(files), 'ExifTool:Error:Get', e.stderr)
                 return None
 
         # handle unicode
@@ -161,23 +161,28 @@ class ExifToolGUIData:
             "ThumbnailImage",
             "PreviewImage",
             "OtherImage",
-            "Preview PICT",
+            "PreviewPICT",
             "CoverArt",
+            
+            "Preview",
         ]
+        try:
+            with exiftool.ExifToolHelper(common_args=None) as et:
+                temp: dict[str, ] = et.get_tags(
+                    metadata['SourceFile'],
+                    tag_thum,
+                    ['-b']
+                )[0]
+            temp.pop('SourceFile')
 
-        with exiftool.ExifToolHelper(common_args=None) as et:
-            temp: dict[str, ] = et.get_tags(
-                metadata['SourceFile'],
-                tag_thum,
-                ['-b']
-            )[0]
-        temp.pop('SourceFile')
+            for key in temp:
+                s: str = temp[key]
+                if s.startswith('base64:'):
+                    b: bytes = base64.b64decode(s[7:])
+                    return b
 
-        for key in temp:
-            s: str = temp[key]
-            if s.startswith('base64:'):
-                b: bytes = base64.b64decode(s[7:])
-                return b
+        except ExifToolExecuteError as e:
+            ExifToolGUIData.Log(metadata['SourceFile'], 'ExifTool:Error:Get_Thumbnail', e.stderr)
 
         return default
 

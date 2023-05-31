@@ -1,8 +1,9 @@
 {
   "ui": "exiftoolgui_mainwindow.ui",
-  "dirs": [
-    "//nas/home/dev/git/ExifToolGUI/.samples/1 - 副本"
-  ],
+  "assets": {
+    "no_preview": "./assets/no_preview.jpg"
+  },
+  "dirs": [],
   "tags_for_group": [
     "File:FileModifyDate",
     "EXIF:DateTimeOriginal",
@@ -25,7 +26,7 @@
     "-s": "auto",
     "-b": "auto",
     "-G:0:1:2:3:4:5:6:7": "forced",
-    "-sep ,": "forced",
+    "-sep ;": "forced",
     "-n": "on",
     "-a": "on",
     "-U": "on",
@@ -63,7 +64,7 @@
       },
       "default_timezone": {
         "type": "timezone",
-        "default":""
+        "default": ""
       }
     },
     "test_func": {

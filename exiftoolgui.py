@@ -200,9 +200,14 @@ class ExifToolGUI():
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
                     b: bytes = ExifToolGUIData.Get_Thumbnail(metadata)
-                    if b != None:
+                    pic = None
+                    if b:
                         pic = QPixmap()
                         pic.loadFromData(b)
+                    else:
+                        pic = QPixmap(self.settings.assets_no_preview)
+                    if pic:
+                        pic = pic.scaledToHeight(64)
                         item.setData(Qt.DecorationRole, pic)
 
                         # label = QLabel()
@@ -470,8 +475,8 @@ class ExifToolGUI():
 
         tree.blockSignals(False)
 
-    def get_results__functions_parameters(self)-> tuple[str, dict[str,]]:
-        func:str = self.comboBox_functions.currentText()
+    def get_results__functions_parameters(self) -> tuple[str, dict[str,]]:
+        func: str = self.comboBox_functions.currentText()
 
         dict_args: dict[str,] = {}
 
