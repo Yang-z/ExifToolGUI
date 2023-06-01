@@ -199,7 +199,7 @@ class ExifToolGUI():
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    b: bytes = ExifToolGUIData.Get_Thumbnail(metadata)
+                    b: bytes = self.data.load_thumbnail(metadata['SourceFile'])
                     pic = None
                     if b:
                         pic = QPixmap()
@@ -538,7 +538,7 @@ class ExifToolGUI():
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
-        if dir in self.settings.dirs:
+        if not dir or dir in self.settings.dirs:
             return
         self.settings.add_dir(dir)
         self.reload_list_for_dirs()

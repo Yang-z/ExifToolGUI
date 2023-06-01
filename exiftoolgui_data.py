@@ -6,10 +6,12 @@ from datetime import datetime, timezone, timedelta
 import re
 
 import exiftool
-from exiftool.helper import ExifToolExecuteError
+from exiftool.helper import ExifToolHelper, ExifToolExecuteError
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
+
+import atexit
 
 
 class ExifToolGUIData:
@@ -23,6 +25,17 @@ class ExifToolGUIData:
         return cls._instance
 
     def __init__(self) -> None:
+        self.exiftool = exiftool.ExifToolHelper(common_args=None)
+        '''
+        note:
+        There is a bug in CPython 3.8+ on Windows where terminate() does not work during __del__()
+        See CPython issue `starting a thread in __del__ hangs at interpreter shutdown`_ for more info.
+        _starting a thread in __del__ hangs at interpreter shutdown: https://bugs.python.org/issue43784
+        Use 'atexit' instead.
+        (Please make sure to create instances of the class and run the main loop in the main thread of the program, to ensure that 'atexit' works properly.)
+        '''
+        atexit.register(self.exiftool.terminate)
+
         self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
         self.cache: list[dict[str, ]] = []
         self.cache_edited: list[dict[str, ]] = []
@@ -54,35 +67,38 @@ class ExifToolGUIData:
             self.cache_failed.append({})
 
     def load(self, files: list[str], tags: list[str] = None) -> list[dict[str, ]]:
-        if len(files) == 0:
-            return []
+        results: list[dict[str,]] = []
 
-        with exiftool.ExifToolHelper(common_args=None) as et:
-            try:
-                result: list[dict[str, ]] = et.get_tags(
-                    files,
-                    tags,
-                    self.settings.exiftool_params
-                )
-            except ExifToolExecuteError as e:
-                ExifToolGUIData.Log(str(files), 'ExifTool:Error:Get', e.stderr)
-                return None
+        for file in files:
+            result = self.load_tags(file, tags, self.settings.exiftool_params, 'load')
+            results.append(result)
 
-        # handle unicode
-        self.fix_unicode_filename(files, result)
+            # handle non-unicode
+            self.fix_non_unicode_filename(file, result)
 
-        # handle warning
-        for file_index in range(0, len(result)):
+            # handle ExifTool:Warning
             while True:
-                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result[file_index], 'ExifTool:Warning', None)
+                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result, 'ExifTool:Warning', None)
                 if warning == None:
                     break
-                self.Log(result[file_index]['SourceFile'], 'ExifTool:Warning:Get', warning)
-                result[file_index].pop(tag_w)
+                self.Log(result['SourceFile'], 'ExifTool:Warning:load', warning)
+                result.pop(tag_w)
 
+        return results
+
+    def load_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
+        result: dict[str,] = {'SourceFile': file}
+        try:
+            result.update(self.exiftool.get_tags(file, tags, params)[0])
+        except ExifToolExecuteError as e:
+            ExifToolGUIData.Log(file, f'ExifTool:Error:ExifToolExecuteError:{process_name}', e.stderr)
+        except UnicodeEncodeError as e:
+            ExifToolGUIData.Log(file, f'ExifToolGUI:Error:UnicodeEncodeError:{process_name}', str(e))
+        except Exception as e:
+            ExifToolGUIData.Log(file, f'ExifToolGUI:Error:Unknow:{process_name}', str(e))
         return result
 
-    def fix_unicode_filename(self, files: list[str], result: list[dict[str, ]]) -> None:
+    def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
         '''
         # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
         # Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
@@ -96,20 +112,36 @@ class ExifToolGUIData:
         # provides is a UTF-8 'validated' but irreversibly damaged value.
         '''
         # if local system encoding is not utf-8
-        if locale.getpreferredencoding(False) != 'UTF-8':
+        if locale.getpreferredencoding(False) != 'utf-8':
             tags_b: list = ['File:FileName', 'File:Directory']
-            with exiftool.ExifToolHelper(common_args=None) as et:
-                temp_b: list[dict[str, ]] = et.get_tags(
-                    files,
-                    tags_b,
-                    self.settings.exiftool_params + ['-b']
-                )
-            for file_index in range(0, len(result)):
+            result_b: dict[str, ] = self.load_tags(file, tags_b, self.settings.exiftool_params + ['-b'], 'fix_unicode_filename')
+            if result_b:
                 for tag_b in ['SourceFile'] + tags_b:
-                    maybe_base64 = ExifToolGUIData.Get(temp_b[file_index], tag_b)
+                    maybe_base64 = ExifToolGUIData.Get(result_b, tag_b)
                     fixed = ExifToolGUIAide.Base64_to_Str(maybe_base64)
                     if fixed:
-                        ExifToolGUIData.Set(result[file_index], tag_b, fixed)
+                        ExifToolGUIData.Set(metadata, tag_b, fixed)
+
+    def load_thumbnail(self, file: str, default=None) -> bytes:
+        # ref: https://exiftool.org/forum/index.php?topic=4216
+        tag_thum: list[str] = [
+            "ThumbnailImage",
+            "PreviewImage",
+            "OtherImage",
+            "PreviewPICT",
+            "CoverArt",
+
+            "Preview",
+        ]
+        result = self.load_tags(file, tag_thum, ['-b'], 'load_thumbnail')
+        result.pop('SourceFile')
+
+        for key in result:
+            s: str = result[key]
+            if s.startswith('base64:'):
+                b: bytes = base64.b64decode(s[7:])
+                return b
+        return default
 
     @staticmethod
     def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
@@ -153,38 +185,6 @@ class ExifToolGUIData:
         if tag_matched == None:
             return default
         return metadata[tag_matched]
-
-    @staticmethod
-    def Get_Thumbnail(metadata: dict[str, ], default=None) -> bytes:
-        # ref: https://exiftool.org/forum/index.php?topic=4216
-        tag_thum: list = [
-            "ThumbnailImage",
-            "PreviewImage",
-            "OtherImage",
-            "PreviewPICT",
-            "CoverArt",
-            
-            "Preview",
-        ]
-        try:
-            with exiftool.ExifToolHelper(common_args=None) as et:
-                temp: dict[str, ] = et.get_tags(
-                    metadata['SourceFile'],
-                    tag_thum,
-                    ['-b']
-                )[0]
-            temp.pop('SourceFile')
-
-            for key in temp:
-                s: str = temp[key]
-                if s.startswith('base64:'):
-                    b: bytes = base64.b64decode(s[7:])
-                    return b
-
-        except ExifToolExecuteError as e:
-            ExifToolGUIData.Log(metadata['SourceFile'], 'ExifTool:Error:Get_Thumbnail', e.stderr)
-
-        return default
 
     @staticmethod
     def Get_Tag_A_Value(metadata: dict[str, ], tag: str, default=None):
