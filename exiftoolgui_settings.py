@@ -39,8 +39,8 @@ class ExifToolGUISettings:
         return self.raw['tags_for_group']
 
     @property
-    def tags_for_single_custom(self) -> list:
-        return self.raw['tags_for_single_custom']
+    def tags_for_single(self) -> dict[str,list[str]]:
+        return self.raw['tags_for_single']
 
     @property
     def files(self) -> list:

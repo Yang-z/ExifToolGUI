@@ -30,6 +30,8 @@ class ExifToolGUI():
 
         self.adjust_main_window()
 
+        self.load_tabs_for_single()
+
         self.load_layout_exiftool_options()
 
         self.reload_list_for_dirs()
@@ -50,22 +52,6 @@ class ExifToolGUI():
     @property
     def tab_for_single(self) -> QTabWidget:
         return self.main_window.findChild(QTabWidget, 'tab_for_single')
-
-    @property
-    def tree_for_single_all(self) -> QTreeWidget:
-        return self.main_window.findChild(QTreeWidget, 'tree_for_single_all')
-
-    @property
-    def tree_for_single_custom(self) -> QTreeWidget:
-        return self.main_window.findChild(QTreeWidget, 'tree_for_single_custom')
-
-    # @property
-    # def current_tree_for_single(self) -> QTreeView:
-    #     if(self.tab_for_single.currentWidget().objectName() == 'tab_for_single_all'):
-    #         return self.tree_for_single_all
-    #     elif(self.tab_for_single.currentWidget().objectName() == 'tab_for_single_custom'):
-    #         return self.tree_for_single_custom
-    #     return None
 
     @property
     def list_dirs(self) -> QListWidget:
@@ -107,7 +93,7 @@ class ExifToolGUI():
         return main_window
 
     '''################################################################
-    Reload UI
+    UI
     ################################################################'''
     @staticmethod
     def clear_layout(layout: QLayout):
@@ -135,8 +121,31 @@ class ExifToolGUI():
         # self.table_for_group.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table_for_group.verticalHeader().setSectionsMovable(True)
 
-        self.tree_for_single_all.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.tree_for_single_custom.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+    def load_tabs_for_single(self):
+        tab_wedget: QTabWidget = self.tab_for_single
+
+        tab_wedget.currentChanged.connect(self.on_current_changed__tab_for_single)  # EVENT
+
+        for tab_type in self.settings.tags_for_single.keys():
+
+            widget: QWidget = QWidget()
+            tab_wedget.addTab(widget, tab_type)
+
+            tree: QTreeWidget = QTreeWidget()
+            tree.setColumnCount(2)
+            tree.setHeaderLabels(["Tag", "Value"])
+
+            tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # UI
+            # tree.setStyleSheet("QTreeWidget::item { border-bottom: 1px solid gray; }")  # style
+
+            tree.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)  # EVENT
+            tree.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)  # EVENT
+            tree.itemChanged.connect(self.on_item_changed__tree_for_single)  # EVENT
+
+            layout = QGridLayout()
+            layout.setContentsMargins(1, 1, 1, 1)  # UI
+            layout.addWidget(tree)
+            widget.setLayout(layout)
 
     def load_layout_exiftool_options(self):
         options = self.settings.exiftool_options
@@ -224,31 +233,27 @@ class ExifToolGUI():
         self.table_for_group.blockSignals(False)
 
     def reload_current_tree_for_single(self):
-        cur = self.tab_for_single.currentWidget().objectName()
-        if cur == 'tab_for_single_all':
-            self.reload_tree_for_single_all()
-        elif cur == 'tab_for_single_custom':
-            self.reload_tree_for_single_custom()
+        tab_wedget = self.tab_for_single
+        title = tab_wedget.tabText(tab_wedget.currentIndex())
 
-    def reload_tree_for_single_all(self):
-        tree = self.tree_for_single_all
-        file_index: int = self.table_for_group.currentRow()
-        metadata: dict[str, ] = self.data.cache[file_index]
-        self.reload_tree_for_single(tree, metadata)
-        self.edit_tree_for_single(tree, strict=True)
+        cur_tab = tab_wedget.currentWidget()
+        tree = cur_tab.findChild(QTreeWidget)
 
-    def reload_tree_for_single_custom(self):
-        tree = self.tree_for_single_custom
         file_index: int = self.table_for_group.currentRow()
         metadata = self.data.cache[file_index]
-        metadata_temp: dict[str, ] = {
-            'SourceFile': metadata['SourceFile']
-        }
-        for tag in self.settings.tags_for_single_custom:
-            value = ExifToolGUIData.Get(metadata, tag, '')
-            metadata_temp[tag] = value
+        strict = False
+
+        if title == 'all':
+            metadata_temp = metadata
+            strict = True
+        else:
+            metadata_temp = {'SourceFile': metadata['SourceFile']}
+            for tag in self.settings.tags_for_single[title]:
+                value = ExifToolGUIData.Get(metadata, tag, '')
+                metadata_temp[tag] = value
+
         self.reload_tree_for_single(tree, metadata_temp)
-        self.edit_tree_for_single(tree)
+        self.edit_tree_for_single(tree, strict)
 
     def reload_tree_for_single(self, tree: QTreeWidget, metadata: dict[str, ]):
         tree.blockSignals(True)
@@ -433,11 +438,15 @@ class ExifToolGUI():
         return items
 
     def edit_current_tree_for_single(self):
-        cur = self.tab_for_single.currentWidget().objectName()
-        if cur == 'tab_for_single_all':
-            self.edit_tree_for_single(self.tree_for_single_all, strict=True)
-        elif cur == 'tab_for_single_custom':
-            self.edit_tree_for_single(self.tree_for_single_custom)
+        tab_wedget = self.tab_for_single
+        title = tab_wedget.tabText(tab_wedget.currentIndex())
+        tree = tab_wedget.currentWidget().findChild(QTreeWidget)
+
+        strict = False
+        if title == 'all':
+            strict = True
+
+        self.edit_tree_for_single(tree, strict)
 
     def edit_tree_for_single(self, tree: QTreeWidget, strict: bool = False):
         tree.blockSignals(True)
@@ -517,16 +526,6 @@ class ExifToolGUI():
         # 点击任意按钮，再切换tab便触发？
         self.table_for_group.currentItemChanged.connect(self.on_current_item_changed__table_for_group)
         self.table_for_group.itemChanged.connect(self.on_item_changed__table_for_group)
-
-        self.tab_for_single.currentChanged.connect(self.on_current_changed__tab_for_single)
-
-        self.tree_for_single_all.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)
-        self.tree_for_single_all.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)
-        self.tree_for_single_all.itemChanged.connect(self.on_item_changed__tree_for_single)
-
-        self.tree_for_single_custom.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)
-        self.tree_for_single_custom.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)
-        self.tree_for_single_custom.itemChanged.connect(self.on_item_changed__tree_for_single)
 
         self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged_4_comboBox_functions)
         self.pushButton_functions_exec.clicked.connect(self.on_clicked__pushButton_functions_exec)

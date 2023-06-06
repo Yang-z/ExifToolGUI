@@ -269,7 +269,7 @@ class ExifToolGUIData:
             for tag_unsaved in unsaved[file_index]:
                 tags_return_full, values_return = ExifToolGUIData.Get_Tags_A_Values(result, tag_unsaved)
                 tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
-                assert len(tags_cache_full) > 0
+                # assert len(tags_cache_full) > 0 # not true when a tag is newly added
                 value_edited = unsaved[file_index][tag_unsaved]
 
                 failed: bool = False
