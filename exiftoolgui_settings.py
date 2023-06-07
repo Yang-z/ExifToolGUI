@@ -23,8 +23,8 @@ class ExifToolGUISettings:
         return self.raw[key]
 
     @property
-    def ui(self) -> str:
-        return self.raw['ui']
+    def assets_ui(self) -> str:
+        return self.raw['assets']['ui']
 
     @property
     def assets_no_preview(self) -> str:

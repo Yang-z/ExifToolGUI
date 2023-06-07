@@ -1,6 +1,6 @@
 {
-  "ui": "exiftoolgui_mainwindow.ui",
   "assets": {
+    "ui": "exiftoolgui_mainwindow.ui",
     "no_preview": "./assets/no_preview.jpg"
   },
   "dirs": [],

@@ -55,6 +55,38 @@ class ExifToolGUIData:
                     unsaved[file_index][tag_edited] = value_edited
         return unsaved
 
+    def read_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
+        result: dict[str,] = {'SourceFile': file}
+        try:
+            result.update(self.exiftool.get_tags(file, tags, params)[0])
+        except ExifToolExecuteError as e:
+            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Read:{process_name}', e.stderr)
+        except UnicodeEncodeError as e:
+            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Read:{process_name}', str(e))
+        except Exception as e:
+            self.log(file, f'ExifToolGUI:Error:Unknow:Read:{process_name}', str(e))
+        return result
+
+    def write_tags(self, file: str, tags: list[str], params: list[str], process_name) -> bool:
+        try:
+            r: str = self.exiftool.set_tags(file, tags, params)
+            if r:
+                self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+            return True
+        except ExifToolExecuteError as e:
+            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Write:{process_name}', e.stderr)
+        except UnicodeEncodeError as e:
+            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Write:{process_name}', str(e))
+        except Exception as e:
+            self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
+        return False
+
+    def log(self, source_file: str, type: str, message: str):
+        message = str(message).strip()
+        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
+        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
+        print(log)
+
     def reload(self) -> None:
         self.cache.clear()
         self.cache_edited.clear()
@@ -70,7 +102,7 @@ class ExifToolGUIData:
         results: list[dict[str,]] = []
 
         for file in files:
-            result = self.load_tags(file, tags, self.settings.exiftool_params, 'load')
+            result = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
             results.append(result)
 
             # handle non-unicode
@@ -78,25 +110,13 @@ class ExifToolGUIData:
 
             # handle ExifTool:Warning
             while True:
-                tag_w, warning = ExifToolGUIData.Get_Tag_A_Value(result, 'ExifTool:Warning', None)
+                tag_w, warning = ExifToolGUIData.Get_Tag_Value(result, 'ExifTool:Warning', None)
                 if warning == None:
                     break
-                self.Log(result['SourceFile'], 'ExifTool:Warning:load', warning)
+                self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
                 result.pop(tag_w)
 
         return results
-
-    def load_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
-        result: dict[str,] = {'SourceFile': file}
-        try:
-            result.update(self.exiftool.get_tags(file, tags, params)[0])
-        except ExifToolExecuteError as e:
-            ExifToolGUIData.Log(file, f'ExifTool:Error:ExifToolExecuteError:{process_name}', e.stderr)
-        except UnicodeEncodeError as e:
-            ExifToolGUIData.Log(file, f'ExifToolGUI:Error:UnicodeEncodeError:{process_name}', str(e))
-        except Exception as e:
-            ExifToolGUIData.Log(file, f'ExifToolGUI:Error:Unknow:{process_name}', str(e))
-        return result
 
     def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
         '''
@@ -114,7 +134,7 @@ class ExifToolGUIData:
         # if local system encoding is not utf-8
         if locale.getpreferredencoding(False) != 'utf-8':
             tags_b: list = ['File:FileName', 'File:Directory']
-            result_b: dict[str, ] = self.load_tags(file, tags_b, self.settings.exiftool_params + ['-b'], 'fix_unicode_filename')
+            result_b: dict[str, ] = self.read_tags(file, tags_b, self.settings.exiftool_params + ['-b'], 'fix_unicode_filename')
             if result_b:
                 for tag_b in ['SourceFile'] + tags_b:
                     maybe_base64 = ExifToolGUIData.Get(result_b, tag_b)
@@ -133,7 +153,7 @@ class ExifToolGUIData:
 
             "Preview",
         ]
-        result = self.load_tags(file, tag_thum, ['-b'], 'load_thumbnail')
+        result = self.read_tags(file, tag_thum, ['-b'], 'load_thumbnail')
         result.pop('SourceFile')
 
         for key in result:
@@ -143,76 +163,11 @@ class ExifToolGUIData:
                 return b
         return default
 
-    @staticmethod
-    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
-        if tag in metadata:
-            return tag  # return the exact tag preferentially
-        if strict:
-            return default
-        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
-        for tag_source in metadata:
-            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
-            if tag_source_n == tag_n:
-                return tag_source
-        return default
-
-    @staticmethod
-    def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
-        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
-        tags: list[str] = []
-        for tag_source in metadata:
-            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
-            if tag_source_n == tag_n:
-                tags.append(tag_source)
-        return tags
-
-    @staticmethod
-    def Normalise_Tag(tag: str) -> str:
-        if tag == None or tag == '':
-            return tag
-        tag_s: list[str] = tag.lower().split(':')
-        # tag_normalised: str = (tag_s[0], tag_s[0] + ':' + tag_s[-1])[len(tag_s) > 1]
-        tag_normalised: str = tag_s[0] if len(tag_s) == 1 else tag_s[0] + ':' + tag_s[-1]
-        return tag_normalised
-
-    @staticmethod
-    def Is_Tag_Equal(tag1: str, tag2: str):
-        return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
-
-    @staticmethod
-    def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag, None, strict)
-        if tag_matched == None:
-            return default
-        return metadata[tag_matched]
-
-    @staticmethod
-    def Get_Tag_A_Value(metadata: dict[str, ], tag: str, default=None):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
-        if tag_matched == None:
-            return default, default
-        return tag_matched, metadata[tag_matched]
-
-    @staticmethod
-    def Get_Tags_A_Values(metadata: dict[str, ], tag: str):
-        tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
-        values: list = []
-        for tag_matched in tags_matched:
-            values.append(metadata[tag_matched])
-        return tags_matched, values
-
-    @staticmethod
-    def Set(metadata: dict[str, ], tag: str, value):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
-        if tag_matched == None:
-            return
-        metadata[tag_matched] = value
-
     def edit(self, file_index: int, tag: str, value, save=False):
         metadata = self.cache_edited[file_index]
         tag_n = ExifToolGUIData.Normalise_Tag(tag)
         metadata[tag_n] = value
-        self.Log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
+        self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
 
         if save:
             self.save()
@@ -223,19 +178,10 @@ class ExifToolGUIData:
             if len(unsaved[file_index]) == 0:
                 continue
             file = self.cache[file_index]['SourceFile']
-            self.Log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
+            self.log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
             # set tags to file
-            with exiftool.ExifToolHelper(common_args=None) as et:
-                try:
-                    r: str = et.set_tags(
-                        file,
-                        unsaved[file_index],
-                        self.settings.exiftool_params
-                    )
-                    if r:
-                        self.Log(file, 'ExifTool:Info:Set', r)
-                except ExifToolExecuteError as e:
-                    self.Log(file, 'ExifTool:Error:Set', e.stderr)
+
+            self.write_tags(file, unsaved[file_index], self.settings.exiftool_params, 'save')
 
             # check whether file name is changed
             file_new = file
@@ -267,7 +213,7 @@ class ExifToolGUIData:
 
             # check result
             for tag_unsaved in unsaved[file_index]:
-                tags_return_full, values_return = ExifToolGUIData.Get_Tags_A_Values(result, tag_unsaved)
+                tags_return_full, values_return = ExifToolGUIData.Get_Tags_Values(result, tag_unsaved)
                 tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
                 # assert len(tags_cache_full) > 0 # not true when a tag is newly added
                 value_edited = unsaved[file_index][tag_unsaved]
@@ -302,11 +248,69 @@ class ExifToolGUIData:
                     self.cache_failed[file_index][tag_unsaved] = value_edited
 
     @staticmethod
-    def Log(source_file: str, type: str, message: str):
-        message = str(message).strip()
-        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
-        print(log)
+    def Normalise_Tag(tag: str) -> str:
+        if tag == None or tag == '':
+            return tag
+        tag_s: list[str] = tag.lower().split(':')
+        # tag_normalised: str = (tag_s[0], tag_s[0] + ':' + tag_s[-1])[len(tag_s) > 1]
+        tag_normalised: str = tag_s[0] if len(tag_s) == 1 else tag_s[0] + ':' + tag_s[-1]
+        return tag_normalised
+
+    @staticmethod
+    def Is_Tag_Equal(tag1: str, tag2: str):
+        return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
+
+    @staticmethod
+    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
+        if tag in metadata:
+            return tag  # return the exact tag preferentially
+        if strict:
+            return default
+        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
+        for tag_source in metadata:
+            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
+            if tag_source_n == tag_n:
+                return tag_source
+        return default
+
+    @staticmethod
+    def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
+        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
+        tags: list[str] = []
+        for tag_source in metadata:
+            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
+            if tag_source_n == tag_n:
+                tags.append(tag_source)
+        return tags
+
+    @staticmethod
+    def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):  # Get_Value
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag, None, strict)
+        if tag_matched == None:
+            return default
+        return metadata[tag_matched]
+
+    @staticmethod
+    def Get_Tag_Value(metadata: dict[str, ], tag: str, default=None):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+        if tag_matched == None:
+            return default, default
+        return tag_matched, metadata[tag_matched]
+
+    @staticmethod
+    def Get_Tags_Values(metadata: dict[str, ], tag: str):
+        tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
+        values: list = []
+        for tag_matched in tags_matched:
+            values.append(metadata[tag_matched])
+        return tags_matched, values
+
+    @staticmethod
+    def Set(metadata: dict[str, ], tag: str, value):
+        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+        if tag_matched == None:
+            return
+        metadata[tag_matched] = value
 
 
 if __name__ == "__main__":
