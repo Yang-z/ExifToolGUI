@@ -93,7 +93,6 @@ class ExifToolGUIData:
         self.cache_failed.clear()
 
         self.cache += self.load(self.settings.files)
-        # print(self.cache is self.raw['cache'])
 
         for file_index in range(0, len(self.cache)):
             self.cache_edited.append({})
@@ -113,13 +112,6 @@ class ExifToolGUIData:
             for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
                 self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
                 result.pop(tag_w)
-
-            # while True:
-            #     tag_w, warning = ExifToolGUIData.Get_Tag_Value(result, 'ExifTool:Warning', None)
-            #     if warning == None:
-            #         break
-            #     self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
-            #     result.pop(tag_w)
 
         return results
 
@@ -171,13 +163,33 @@ class ExifToolGUIData:
         return default
 
     def edit(self, file_index: int, tag: str, value, save=False):
+        if tag == None:
+            return
+
+        if tag.startswith('?'):
+            self.edit_condition(file_index, tag, value)
+        elif tag.startswith('&'):
+            self.edit_composite(file_index, tag, value)
+        else:
+            self.edit_normal(file_index, tag, value)
+
+        if save:
+            self.save()
+
+    def edit_normal(self, file_index: int, tag: str, value):
         metadata = self.cache_edited[file_index]
         tag_n = ExifToolGUIData.Normalise_Tag(tag)
         metadata[tag_n] = value
         self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
 
-        if save:
-            self.save()
+    def edit_composite(self, file_index: int, tag: str, value):
+        resolved = self.resolve_composite_value(tag, value)
+        for tag_r, value_r in resolved.items():
+            self.edit(file_index, tag_r, value_r, save=False)
+
+    def edit_condition(self, file_index: int, tag: str, value):
+        tag_r = self.resolve_condition_tag(file_index, tag)
+        self.edit(file_index, tag_r, value, save=False)
 
     def save(self):
         unsaved = self.cache_unsaved
@@ -407,10 +419,11 @@ class ExifToolGUIData:
                 match_dict_n = match.groupdict()
 
                 # return the original keys' names
-                match_dict = {key.replace('__COLON__', ':'): value for key, value in match_dict_n.items()}
+                match_dict = {key.replace('__COLON__', ':'): value if value != None else '' for key, value in match_dict_n.items()}
 
                 return match_dict
-        return None
+
+        return {}
 
     def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
         tag_r = self.resolve_condition_tag(file_index, tag)
@@ -429,7 +442,7 @@ class ExifToolGUIData:
 
                 match = re.match(condition['pattern'], to_be_tested)
                 if match:
-                    print(f"{tag}->{candidate_tag}")
+                    # print(f"{tag}->{candidate_tag}")
                     if candidate_tag.startswith('?'):
                         return self.resolve_condition_tag(file_index, tag)
                     else:

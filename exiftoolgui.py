@@ -380,7 +380,7 @@ class ExifToolGUI():
         show_value = None
 
         if value_edited != None:
-            print(f"---\n{value_saved}\n{value_edited}\n{status}")
+            # print(f"---\n{value_saved}\n{value_edited}\n{status}")
             if status == True:
                 colour = Qt.green  # or QColor(r, g, b)
                 show_value = value_saved
@@ -501,7 +501,7 @@ class ExifToolGUI():
             return
         self.settings.add_dir(dir)
         self.reload_list_for_dirs()
-        print(dir)
+        # print(dir)
 
     def on_clicked__button_remove_dir(self, checked=False):
         list_dirs_curr = self.list_dirs.currentItem()
@@ -512,8 +512,8 @@ class ExifToolGUI():
         self.reload_list_for_dirs()
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):
-        print(f"{current.row()}, {current.column()}")
-        print(f"{current.data(Qt.UserRole)}")
+        # print(f"{current.row()}, {current.column()}")
+        # print(f"{current.data(Qt.UserRole)}")
         if (
             current == None or
             (previous != None and previous.row() == current.row())
