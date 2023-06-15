@@ -355,10 +355,17 @@ class ExifToolGUI():
             sub_layout: QHBoxLayout = QHBoxLayout()
             layout.addLayout(sub_layout, r, c)
 
-            lable: QLabel = QLabel(key)
-            sub_layout.addWidget(lable)
-            lineEdit: QLineEdit = QLineEdit(str(value['default']))
-            sub_layout.addWidget(lineEdit)
+            if value['type'] == 'bool':
+                checkbox: QCheckBox = QCheckBox(key)
+                checkbox.setChecked(value['default'])
+                sub_layout.addWidget(checkbox)
+
+            else:
+                lable: QLabel = QLabel(key)
+                sub_layout.addWidget(lable)
+                lineEdit: QLineEdit = QLineEdit(str(value['default']))
+                sub_layout.addWidget(lineEdit)
+
             r += 1
             if r == 3:
                 r = 0
@@ -465,9 +472,16 @@ class ExifToolGUI():
                 if item:
                     sub_layout: QHBoxLayout = item.layout()
                     if sub_layout:
-                        lable: QLabel = sub_layout.itemAt(0).widget()
-                        lineEdit: QLineEdit = sub_layout.itemAt(1).widget()
-                        dict_args[lable.text()] = lineEdit.text()
+                        widget = sub_layout.itemAt(0).widget()
+
+                        if type(widget) == QCheckBox:
+                            checkBox:QCheckBox = widget
+                            dict_args[checkBox.text()] = checkBox.isChecked()
+
+                        elif type(widget) == QLabel:
+                            lable: QLabel = widget
+                            lineEdit: QLineEdit = sub_layout.itemAt(1).widget()
+                            dict_args[lable.text()] = lineEdit.text()
 
         return func, dict_args
 

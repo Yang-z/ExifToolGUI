@@ -163,7 +163,7 @@ class ExifToolGUIData:
         return default
 
     def edit(self, file_index: int, tag: str, value, save=False):
-        if tag == None:
+        if tag == None or tag == '' or (' ' in tag):
             return
 
         if tag.startswith('?'):

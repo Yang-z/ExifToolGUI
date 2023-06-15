@@ -17,10 +17,10 @@
     "all": [],
     "Datetime": [
       "SourceFile",
+      "?Timeline",
       "File:FileModifyDate",
       "File:FileAccessDate",
       "File:FileCreateDate",
-      "?Timeline",
       "&EXIF:DateTimeOriginal",
       "EXIF:DateTimeOriginal",
       "EXIF:SubSecTimeOriginal",
@@ -40,7 +40,9 @@
       "&QuickTime:CreateDate",
       "QuickTime:CreateDate",
       "QuickTime:ModifyDate",
-      "QuickTime:GPSDateTime"
+      "&QuickTime:GPSTimeStamp",
+      "QuickTime:GPSDateTime",
+      "QuickTime:GPSTimeStamp"
     ],
     "GPS": [
       "SourceFile",
@@ -87,6 +89,12 @@
     "simplify_group_level": true
   },
   "functions": {
+    "rename": {
+      "format": {
+        "type": "format",
+        "default": "<?Timeline> <File:FileName>.<File:FileTypeExtension>"
+      }
+    },
     "copy_value": {
       "from_tag": {
         "type": "tag",
@@ -94,13 +102,21 @@
       },
       "to_tags": {
         "type": "tag",
-        "default": "EXIF:DateTimeOriginal"
+        "default": "?Timeline"
+      },
+      "is_datetime": {
+        "type": "bool",
+        "default": true
+      },
+      "default_timezone": {
+        "type": "timezone",
+        "default": ""
       }
     },
     "shift_datetime": {
       "tag": {
         "type": "tag",
-        "default": "EXIF:DateTimeOriginal"
+        "default": "?Timeline"
       },
       "to_datetime": {
         "type": "datetime",
@@ -113,24 +129,6 @@
       "default_timezone": {
         "type": "timezone",
         "default": ""
-      }
-    },
-    "test_func": {
-      "p1": {
-        "type": "tag",
-        "default": ""
-      },
-      "p2": {
-        "type": "datetime",
-        "default": ""
-      },
-      "p3": {
-        "type": "timedelt",
-        "default": ""
-      },
-      "p4": {
-        "type": "bool",
-        "default": false
       }
     }
   },
@@ -154,17 +152,25 @@
     "&QuickTime:CreateDate": {
       "format": "(<QuickTime:CreateDate>+00:00)",
       "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?:[+-]00:00)?"
+    },
+    "&QuickTime:ModifyDate": {
+      "format": "(<QuickTime:ModifyDate>+00:00)",
+      "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?:[+-]00:00)?"
+    },
+    "&QuickTime:GPSTimeStamp": {
+      "format": "(<QuickTime:GPSDateTime> <QuickTime:GPSTimeStamp>+00:00)",
+      "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?:[+-]00:00)?"
     }
   },
   "condition_tags": {
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
-        "to_be_tested": "<File:FileName>",
-        "pattern": "(?i).*\\.jpge?$"
+        "to_be_tested": "<File:FileTypeExtension>",
+        "pattern": "(?i)jpge?"
       },
       "&QuickTime:CreateDate": {
-        "to_be_tested": "<File:FileName>",
-        "pattern": "(?i).*\\.mp4?$"
+        "to_be_tested": "<File:FileTypeExtension>",
+        "pattern": "(?i)mp4?"
       }
     }
   }

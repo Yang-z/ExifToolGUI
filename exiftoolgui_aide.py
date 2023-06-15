@@ -17,7 +17,7 @@ class ExifToolGUIAide:
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str, default_timezone: str) -> datetime:
+    def Str_to_Datetime(datetime_str: str, default_timezone: str = '') -> datetime:
         # default_tz, a option for users to avoid naive datetime
         tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
 
