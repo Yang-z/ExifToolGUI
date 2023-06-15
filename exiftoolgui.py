@@ -198,10 +198,9 @@ class ExifToolGUI():
         # table.setVerticalHeaderLabels([str(x) for x in range(0, file_count)])
 
         for file_index in range(0, file_count):
-            metadata = self.data.cache[file_index]
             for column in range(0, tags_count):
                 tag = tags[column]
-                value = ExifToolGUIData.Get(metadata, tag, '')
+                value = self.data.get(file_index, tag, '')
                 item = QTableWidgetItem(str(value))
 
                 item.setData(Qt.UserRole, {"file_index": file_index, "tag": tag})  # mark
@@ -209,7 +208,7 @@ class ExifToolGUI():
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    b: bytes = self.data.load_thumbnail(metadata['SourceFile'])
+                    b: bytes = self.data.load_thumbnail(file_index)
                     pic = None
                     if b:
                         pic = QPixmap()
@@ -241,16 +240,15 @@ class ExifToolGUI():
         tree = cur_tab.findChild(QTreeWidget)
 
         file_index: int = self.table_for_group.currentItem().data(Qt.UserRole)['file_index']
-        metadata = self.data.cache[file_index]
         strict = False
 
         if title == 'all':
-            metadata_temp = metadata
+            metadata_temp = self.data.cache[file_index]
             strict = True
         else:
-            metadata_temp = {'SourceFile': metadata['SourceFile']}
+            metadata_temp: dict[str,] = {}
             for tag in self.settings.tags_for_single[title]:
-                value = ExifToolGUIData.Get(metadata, tag, '')
+                value = self.data.get(file_index, tag, '')
                 metadata_temp[tag] = value
 
         self.reload_tree_for_single(tree, metadata_temp)
@@ -371,26 +369,32 @@ class ExifToolGUI():
     ################################################################'''
 
     def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False):
-        value_saved = str(ExifToolGUIData.Get(self.data.cache[file_index], tag, "", strict))
-        value_edited = ExifToolGUIData.Get(self.data.cache_edited[file_index], tag, None)
-        value_failed = ExifToolGUIData.Get(self.data.cache_failed[file_index], tag, None)
+        value_saved, value_edited, status = self.data.get(file_index, tag, default="", strict=strict, editing=True)
+        value_saved = str(value_saved)
+
+        # value_saved = str(ExifToolGUIData.Get(self.data.cache[file_index], tag, "", strict))
+        # value_edited = ExifToolGUIData.Get(self.data.cache_edited[file_index], tag, None)
+        # value_failed = ExifToolGUIData.Get(self.data.cache_failed[file_index], tag, None)
 
         colour = None
-        new_value = None
-        if value_edited is not None:
-            if value_edited == value_saved:
+        show_value = None
+
+        if value_edited != None:
+            print(f"---\n{value_saved}\n{value_edited}\n{status}")
+            if status == True:
                 colour = Qt.green  # or QColor(r, g, b)
-            elif value_edited == value_failed:
+                show_value = value_saved
+            elif status == False:
                 colour = Qt.red
-                new_value = value_saved
+                show_value = value_saved
             else:
                 colour = Qt.yellow
-                new_value = value_edited
+                show_value = value_edited
         else:
             if value != value_saved:
                 colour = Qt.darkGreen
-                new_value = value_saved
-        return new_value, colour
+                show_value = value_saved
+        return show_value, colour
 
     def edit_table_for_group(self):
         table = self.table_for_group
@@ -405,9 +409,9 @@ class ExifToolGUI():
                 tag: str = user_data['tag']
                 value = item.text()
 
-                new_value, colour = self.edit_tag(file_index, tag, value)
-                if new_value:
-                    item.setText(new_value)
+                show_value, colour = self.edit_tag(file_index, tag, value)
+                if show_value != None and show_value != value:
+                    item.setText(show_value)
                 if colour:
                     item.setBackground(QBrush(colour))
 
@@ -430,10 +434,10 @@ class ExifToolGUI():
             if item.childCount() == 0:
                 tag: str = item.data(0, Qt.UserRole)
                 value = item.text(1)
-                
-                new_value, colour = self.edit_tag(file_index, tag, value, strict)
-                if new_value:
-                    item.setText(1, new_value)
+
+                show_value, colour = self.edit_tag(file_index, tag, value, strict)
+                if show_value != None and show_value != value:
+                    item.setText(1, show_value)
                 if colour:
                     item.setBackground(1, QBrush(colour))
             it += 1

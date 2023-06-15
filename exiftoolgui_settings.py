@@ -77,6 +77,14 @@ class ExifToolGUISettings:
     def functions(self) -> dict[str, dict[str, dict[str,]]]:
         return self.raw['functions']
 
+    @property
+    def composite_tags(self) -> dict[str,dict[str,]]:
+        return self.raw['composite_tags']
+
+    @property
+    def condition_tags(self) -> dict[str,dict[str,dict[str,str]]]:
+        return self.raw['condition_tags']
+
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:
             self.raw: dict = json.load(f, object_pairs_hook=OrderedDict)

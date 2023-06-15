@@ -5,6 +5,7 @@
   },
   "dirs": [],
   "tags_for_group": [
+    "?Timeline",
     "File:FileModifyDate",
     "EXIF:DateTimeOriginal",
     "EXIF:CreateDate",
@@ -15,26 +16,34 @@
   "tags_for_single": {
     "all": [],
     "Datetime": [
+      "SourceFile",
       "File:FileModifyDate",
       "File:FileAccessDate",
       "File:FileCreateDate",
+      "?Timeline",
+      "&EXIF:DateTimeOriginal",
       "EXIF:DateTimeOriginal",
       "EXIF:SubSecTimeOriginal",
       "EXIF:OffsetTimeOriginal",
+      "&EXIF:CreateDate",
       "EXIF:CreateDate",
       "EXIF:SubSecTimeDigitized",
       "EXIF:OffsetTimeDigitized",
+      "&EXIF:ModifyDate",
       "EXIF:ModifyDate",
       "EXIF:SubSecTime",
       "EXIF:OffsetTime",
       "EXIF:TimeZoneOffset",
+      "&EXIF:GPSTimeStamp",
       "EXIF:GPSDateStamp",
       "EXIF:GPSTimeStamp",
+      "&QuickTime:CreateDate",
       "QuickTime:CreateDate",
       "QuickTime:ModifyDate",
       "QuickTime:GPSDateTime"
     ],
     "GPS": [
+      "SourceFile",
       "EXIF:GPSVersionID",
       "EXIF:GPSSatellites",
       "EXIF:GPSLatitude",
@@ -56,7 +65,9 @@
       "QuickTime:GPSSpeed",
       "QuickTime:GPSSpeedRef"
     ],
-    "Custom": []
+    "Custom": [
+      "SourceFile"
+    ]
   },
   "exiftool_options": {
     "-j": "auto",
@@ -120,6 +131,40 @@
       "p4": {
         "type": "bool",
         "default": false
+      }
+    }
+  },
+  "composite_tags": {
+    "&EXIF:DateTimeOriginal": {
+      "format": "(<EXIF:DateTimeOriginal>)(.<EXIF:SubSecTimeOriginal>)(<EXIF:OffsetTimeOriginal>)",
+      "pattern": "(?P<EXIF:DateTimeOriginal>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeOriginal>\\d+))?(?P<EXIF:OffsetTimeOriginal>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+    },
+    "&EXIF:CreateDate": {
+      "format": "(<EXIF:CreateDate>)(.<EXIF:SubSecTimeDigitized>)(<EXIF:OffsetTimeDigitized>)",
+      "pattern": "(?P<EXIF:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeDigitized>\\d+))?(?P<EXIF:OffsetTimeDigitized>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+    },
+    "&EXIF:ModifyDate": {
+      "format": "(<EXIF:ModifyDate>)(.<EXIF:SubSecTime>)(<EXIF:OffsetTime>)",
+      "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+    },
+    "&EXIF:GPSTimeStamp": {
+      "format": "(<EXIF:GPSDateStamp> <EXIF:GPSTimeStamp>+00:00)",
+      "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?:[+-]00:00)?"
+    },
+    "&QuickTime:CreateDate": {
+      "format": "(<QuickTime:CreateDate>+00:00)",
+      "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?:[+-]00:00)?"
+    }
+  },
+  "condition_tags": {
+    "?Timeline": {
+      "&EXIF:DateTimeOriginal": {
+        "to_be_tested": "<File:FileName>",
+        "pattern": "(?i).*\\.jpge?$"
+      },
+      "&QuickTime:CreateDate": {
+        "to_be_tested": "<File:FileName>",
+        "pattern": "(?i).*\\.mp4?$"
       }
     }
   }

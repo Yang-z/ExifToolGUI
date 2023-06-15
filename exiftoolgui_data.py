@@ -37,6 +37,7 @@ class ExifToolGUIData:
         atexit.register(self.exiftool.terminate)
 
         self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+
         self.cache: list[dict[str, ]] = []
         self.cache_edited: list[dict[str, ]] = []
         self.cache_failed: list[dict[str, ]] = []
@@ -92,7 +93,8 @@ class ExifToolGUIData:
         self.cache_edited.clear()
         self.cache_failed.clear()
 
-        self.cache = self.load(self.settings.files)
+        self.cache += self.load(self.settings.files)
+        # print(self.cache is self.raw['cache'])
 
         for file_index in range(0, len(self.cache)):
             self.cache_edited.append({})
@@ -102,7 +104,7 @@ class ExifToolGUIData:
         results: list[dict[str,]] = []
 
         for file in files:
-            result = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
+            result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
             results.append(result)
 
             # handle non-unicode
@@ -142,7 +144,9 @@ class ExifToolGUIData:
                     if fixed:
                         ExifToolGUIData.Set(metadata, tag_b, fixed)
 
-    def load_thumbnail(self, file: str, default=None) -> bytes:
+    def load_thumbnail(self, file_index: int, default=None) -> bytes:
+        file = self.cache[file_index]['SourceFile']
+
         # ref: https://exiftool.org/forum/index.php?topic=4216
         tag_thum: list[str] = [
             "ThumbnailImage",
@@ -213,8 +217,13 @@ class ExifToolGUIData:
 
             # check result
             for tag_unsaved in unsaved[file_index]:
-                tags_return_full, values_return = ExifToolGUIData.Get_Tags_Values(result, tag_unsaved)
-                tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
+
+                # tags_return_full, values_return = ExifToolGUIData.Get_Tags_Values(result, tag_unsaved)
+                tags_return_full, values_return = ExifToolGUIData.Get_Tag_Value(result, tag_unsaved, findall=True)
+
+                # tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
+                tags_cache_full = ExifToolGUIData.Get_Tag(self.cache[file_index], tag_unsaved, findall=True)
+
                 # assert len(tags_cache_full) > 0 # not true when a tag is newly added
                 value_edited = unsaved[file_index][tag_unsaved]
 
@@ -256,54 +265,76 @@ class ExifToolGUIData:
         tag_normalised: str = tag_s[0] if len(tag_s) == 1 else tag_s[0] + ':' + tag_s[-1]
         return tag_normalised
 
-    @staticmethod
-    def Is_Tag_Equal(tag1: str, tag2: str):
-        return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
+    # @staticmethod
+    # def Is_Tag_Equal(tag1: str, tag2: str):
+    #     return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
 
     @staticmethod
-    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False) -> str:
+    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False, findall: bool = False) -> str:
         if tag in metadata:
             return tag  # return the exact tag preferentially
         if strict:
             return default
+
+        if findall:
+            tag_source_list = []
+
         tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
         for tag_source in metadata:
             tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
             if tag_source_n == tag_n:
-                return tag_source
+                if findall:
+                    tag_source_list.append(tag_source)
+                else:
+                    return tag_source
+
+        if findall:
+            return tag_source_list
+
         return default
 
-    @staticmethod
-    def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
-        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
-        tags: list[str] = []
-        for tag_source in metadata:
-            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
-            if tag_source_n == tag_n:
-                tags.append(tag_source)
-        return tags
+    # @staticmethod
+    # def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
+    #     tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
+    #     tags: list[str] = []
+    #     for tag_source in metadata:
+    #         tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
+    #         if tag_source_n == tag_n:
+    #             tags.append(tag_source)
+    #     return tags
 
     @staticmethod
     def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):  # Get_Value
         tag_matched = ExifToolGUIData.Get_Tag(metadata, tag, None, strict)
-        if tag_matched == None:
-            return default
-        return metadata[tag_matched]
+        # if tag_matched == None:
+        #     return default
+        return metadata[tag_matched] if tag_matched != None else default
 
     @staticmethod
-    def Get_Tag_Value(metadata: dict[str, ], tag: str, default=None):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
+    def Get_Tag_Value(metadata: dict[str, ], tag: str, default=None, findall:bool = False):
+        tag_return = ExifToolGUIData.Get_Tag(metadata, tag, None, findall)
+
+        if findall:
+            tags_matched = tag_return
+            values: list = []
+            for tag_matched in tags_matched:
+                values.append(metadata[tag_matched])
+            return tags_matched, values
+
+        tag_matched = tag_return
         if tag_matched == None:
             return default, default
         return tag_matched, metadata[tag_matched]
 
-    @staticmethod
-    def Get_Tags_Values(metadata: dict[str, ], tag: str):
-        tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
-        values: list = []
-        for tag_matched in tags_matched:
-            values.append(metadata[tag_matched])
-        return tags_matched, values
+    # @staticmethod
+    # def Get_Tags_Values(metadata: dict[str, ], tag: str):
+    #     # tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
+    #     tags_matched = ExifToolGUIData.Get_Tag(metadata, tag, findall=True)
+
+    #     values: list = []
+    #     for tag_matched in tags_matched:
+    #         values.append(metadata[tag_matched])
+    #     return tags_matched, values
 
     @staticmethod
     def Set(metadata: dict[str, ], tag: str, value):
@@ -312,6 +343,177 @@ class ExifToolGUIData:
             return
         metadata[tag_matched] = value
 
+    def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+        if tag != None and tag.startswith('?'):
+            return self.get_condition(file_index, tag, default, strict, editing)
+        elif tag != None and tag.startswith('&'):
+            return self.get_composite(file_index, tag, default, strict, editing)
+        else:
+            return self.get_normal(file_index, tag, default, strict, editing)
+
+    def get_normal(self, file_index: int, tag: str, default=None,  strict: bool = False, editing: bool = False):
+        value = ExifToolGUIData.Get(self.cache[file_index], tag, None, strict)
+
+        if editing == True:
+            status: bool = None
+            value_edited = ExifToolGUIData.Get(self.cache_edited[file_index], tag, None)
+            if value_edited != None:
+                if value == None:
+                    if value_edited == '':
+                        status = True
+                elif value_edited == str(value):
+                    status = True
+
+                if status != True:
+                    value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag, None)
+                    if value_edited == value_failed:
+                        status = False
+
+            return value if value != None else default, value_edited, status
+
+        return value if value != None else default
+
+    def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+        composite_tag_def = self.settings.composite_tags.get(tag, None)
+        if composite_tag_def:
+
+            '''old method
+            value = re.sub(
+                r'<(.*?)>',
+                lambda match: self.get(file_index, match.group(1), ""),
+                composite_tag_def['format']
+            )
+            '''
+
+            result = ""
+            keep_overall = False
+
+            if editing == True:
+                result_edited = ""
+
+                keep_overall_edited = False
+                status_overall = True
+
+            fields = re.finditer(r"\((.*?)\)", composite_tag_def['format'])
+            for field in fields:
+                to_be_replaced = field.group(1)
+                keep_field = False
+
+                if editing == True:
+                    to_be_replaced_edited = field.group(1)
+                    keep_field_edited = False
+
+                tags = re.finditer(r'<(.*?)>', field.group(1))
+                for tag in tags:
+
+                    if editing != True:
+                        value = self.get(file_index, tag.group(1), None)
+                    if editing == True:
+                        value, value_edited, status = self.get(file_index, tag.group(1), None, editing=True)
+
+                    if value != None and str(value):  # not None or ''
+                        to_be_replaced = to_be_replaced.replace(tag.group(), str(value))
+                        keep_field = True
+                        keep_overall = True
+                    else:
+                        to_be_replaced = to_be_replaced.replace(tag.group(), '')
+
+                    if editing == True:
+                        if value_edited != None:
+                            keep_overall_edited = True
+                            if status == None:
+                                status_overall = None
+                            elif status == False:
+                                if status_overall != None:
+                                    status_overall = False
+
+                        value_fallback = value_edited if value_edited != None else value
+
+                        if value_fallback != None and str(value_fallback):  # not None or ''
+                            to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), str(value_fallback))
+                            keep_field_edited = True
+                        else:
+                            to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), '')
+
+                if keep_field:
+                    result += to_be_replaced
+
+                if editing == True:
+                    if keep_field_edited:
+                        result_edited += to_be_replaced_edited
+
+            if keep_overall == False:
+                result = default
+
+            if editing == True:
+                if keep_overall_edited == False:
+                    result_edited = None
+
+        if editing == True:
+            return result, result_edited, status_overall
+
+        return result
+
+    def resolve_composite_value(self, tag: str, value) -> dict[str,]:
+        composite_tag_def = self.settings.composite_tags.get(tag, None)
+        if composite_tag_def:
+            pattern = composite_tag_def['pattern']
+
+            # python regular expression does not support colon in group name
+            pattern_n = re.sub(
+                r'<([^>]*)>',
+                lambda match: match.group(0).replace(':', '__COLON__'),
+                pattern
+            )
+
+            match = re.match(pattern_n, value)
+            if match:
+                match_dict_n = match.groupdict()
+
+                # return the original keys' names
+                match_dict = {key.replace('__COLON__', ':'): value for key, value in match_dict_n.items()}
+
+                return match_dict
+        return None
+
+    def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+        tag_r = self.resolve_condition_tag(file_index, tag)
+        return self.get(file_index, tag_r, default, strict, editing)
+
+    def resolve_condition_tag(self, file_index: int, tag: str):
+        condition_tag_def = self.settings.condition_tags.get(tag, None)
+        if condition_tag_def:
+            for candidate_tag, condition in condition_tag_def.items():
+
+                to_be_tested = re.sub(
+                    r'<(.*?)>',
+                    lambda match: self.get(file_index, match.group(1), ""),
+                    condition['to_be_tested']
+                )
+
+                match = re.match(condition['pattern'], to_be_tested)
+                if match:
+                    print(f"{tag}->{candidate_tag}")
+                    if candidate_tag.startswith('?'):
+                        return self.resolve_condition_tag(file_index, tag)
+                    else:
+                        return candidate_tag
+
 
 if __name__ == "__main__":
+    # data:ExifToolGUIData = ExifToolGUIData.Instance
+    # data.reload()
+    # tag_value = data.get_composite(0, "&EXIF:DateTimeOriginal")
+    # print(ctag_value)
+
+    # tag= "&EXIF:DateTimeOriginal"
+    # value = "2008:05:30 15:56:01.5311+08:00"
+    # result= ExifToolGUIData.resolve_composite_tag(vtag, value)
+    # print(result)
+
+    data: ExifToolGUIData = ExifToolGUIData.Instance
+    data.reload()
+    value = data.get(0, "?Timeline", editing=True)
+    print(value)
+
     pass
