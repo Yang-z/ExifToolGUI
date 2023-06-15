@@ -48,8 +48,7 @@ class ExifToolGUIData:
         for file_index in range(0, len(self.cache_edited)):
             unsaved.append({})
             edited = self.cache_edited[file_index]
-            for tag_edited in edited:
-                value_edited = edited[tag_edited]
+            for tag_edited, value_edited in edited.items():
                 value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_edited, '')
                 value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_edited, None)
                 if value_edited != str(value_saved) and value_edited != value_failed:
@@ -111,12 +110,16 @@ class ExifToolGUIData:
             self.fix_non_unicode_filename(file, result)
 
             # handle ExifTool:Warning
-            while True:
-                tag_w, warning = ExifToolGUIData.Get_Tag_Value(result, 'ExifTool:Warning', None)
-                if warning == None:
-                    break
+            for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
                 self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
                 result.pop(tag_w)
+
+            # while True:
+            #     tag_w, warning = ExifToolGUIData.Get_Tag_Value(result, 'ExifTool:Warning', None)
+            #     if warning == None:
+            #         break
+            #     self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
+            #     result.pop(tag_w)
 
         return results
 
@@ -218,25 +221,20 @@ class ExifToolGUIData:
             # check result
             for tag_unsaved in unsaved[file_index]:
 
-                # tags_return_full, values_return = ExifToolGUIData.Get_Tags_Values(result, tag_unsaved)
-                tags_return_full, values_return = ExifToolGUIData.Get_Tag_Value(result, tag_unsaved, findall=True)
+                items_return = ExifToolGUIData.Get_Item(result, tag_unsaved, findall=True)  # tags with full path
+                item_cache = ExifToolGUIData.Get_Item(self.cache[file_index], tag_unsaved, findall=True)  # tags with full path
 
-                # tags_cache_full = ExifToolGUIData.Get_Tags(self.cache[file_index], tag_unsaved)
-                tags_cache_full = ExifToolGUIData.Get_Tag(self.cache[file_index], tag_unsaved, findall=True)
-
-                # assert len(tags_cache_full) > 0 # not true when a tag is newly added
+                # assert len(item_cache) > 0 # not true when a tag is newly added
                 value_edited = unsaved[file_index][tag_unsaved]
 
                 failed: bool = False
 
                 # update cache
-                for tag_cache_full in tags_cache_full:
-                    if tag_cache_full not in tags_return_full:
+                for tag_cache_full in item_cache.keys():
+                    if tag_cache_full not in items_return.keys():
                         self.cache[file_index].pop(tag_cache_full)
 
-                for i in range(0, len(tags_return_full)):
-                    tag_return_full = tags_return_full[i]
-                    value_return = values_return[i]
+                for tag_return_full, value_return in items_return.items():
                     self.cache[file_index][tag_return_full] = value_return
 
                     # check
@@ -247,7 +245,7 @@ class ExifToolGUIData:
                         failed = True
 
                 # check
-                if len(tags_return_full) == 0:
+                if len(items_return) == 0:
                     if value_edited != "":
                         # failed to add a new tag
                         failed = True
@@ -265,83 +263,29 @@ class ExifToolGUIData:
         tag_normalised: str = tag_s[0] if len(tag_s) == 1 else tag_s[0] + ':' + tag_s[-1]
         return tag_normalised
 
-    # @staticmethod
-    # def Is_Tag_Equal(tag1: str, tag2: str):
-    #     return ExifToolGUIData.Normalise_Tag(tag1) == ExifToolGUIData.Normalise_Tag(tag2)
-
     @staticmethod
-    def Get_Tag(metadata: dict[str, ], tag: str, default: str = None, strict: bool = False, findall: bool = False) -> str:
-        if tag in metadata:
-            return tag  # return the exact tag preferentially
-        if strict:
-            return default
-
-        if findall:
-            tag_source_list = []
-
-        tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
-        for tag_source in metadata:
-            tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
+    def Get_Item(metadata: dict[str, ], tag: str, strict: bool = False, findall: bool = False) -> dict[str,]:
+        result: dict[str,] = {}
+        tag_n: str = tag if strict else ExifToolGUIData.Normalise_Tag(tag)
+        for tag_source, value in metadata.items():
+            tag_source_n = tag_source if strict else ExifToolGUIData.Normalise_Tag(tag_source)
             if tag_source_n == tag_n:
-                if findall:
-                    tag_source_list.append(tag_source)
-                else:
-                    return tag_source
-
-        if findall:
-            return tag_source_list
-
-        return default
-
-    # @staticmethod
-    # def Get_Tags(metadata: dict[str, ], tag: str) -> list[str]:
-    #     tag_n: str = ExifToolGUIData.Normalise_Tag(tag)
-    #     tags: list[str] = []
-    #     for tag_source in metadata:
-    #         tag_source_n = ExifToolGUIData.Normalise_Tag(tag_source)
-    #         if tag_source_n == tag_n:
-    #             tags.append(tag_source)
-    #     return tags
+                result.update({tag_source: value})
+                if findall == False:
+                    break
+        return result
 
     @staticmethod
     def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):  # Get_Value
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag, None, strict)
-        # if tag_matched == None:
-        #     return default
-        return metadata[tag_matched] if tag_matched != None else default
-
-    @staticmethod
-    def Get_Tag_Value(metadata: dict[str, ], tag: str, default=None, findall:bool = False):
-        tag_return = ExifToolGUIData.Get_Tag(metadata, tag, None, findall)
-
-        if findall:
-            tags_matched = tag_return
-            values: list = []
-            for tag_matched in tags_matched:
-                values.append(metadata[tag_matched])
-            return tags_matched, values
-
-        tag_matched = tag_return
-        if tag_matched == None:
-            return default, default
-        return tag_matched, metadata[tag_matched]
-
-    # @staticmethod
-    # def Get_Tags_Values(metadata: dict[str, ], tag: str):
-    #     # tags_matched = ExifToolGUIData.Get_Tags(metadata, tag)
-    #     tags_matched = ExifToolGUIData.Get_Tag(metadata, tag, findall=True)
-
-    #     values: list = []
-    #     for tag_matched in tags_matched:
-    #         values.append(metadata[tag_matched])
-    #     return tags_matched, values
+        item = ExifToolGUIData.Get_Item(metadata, tag, strict=strict, findall=False)
+        return next(iter(item.values()), default)
 
     @staticmethod
     def Set(metadata: dict[str, ], tag: str, value):
-        tag_matched = ExifToolGUIData.Get_Tag(metadata, tag)
-        if tag_matched == None:
-            return
-        metadata[tag_matched] = value
+        item = ExifToolGUIData.Get_Item(metadata, tag, findall=False)
+        tag_matched = next(iter(item.keys()), None)
+        if tag_matched != None:
+            metadata[tag_matched] = value
 
     def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
         if tag != None and tag.startswith('?'):
@@ -376,14 +320,6 @@ class ExifToolGUIData:
     def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
         composite_tag_def = self.settings.composite_tags.get(tag, None)
         if composite_tag_def:
-
-            '''old method
-            value = re.sub(
-                r'<(.*?)>',
-                lambda match: self.get(file_index, match.group(1), ""),
-                composite_tag_def['format']
-            )
-            '''
 
             result = ""
             keep_overall = False
