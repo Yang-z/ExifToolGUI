@@ -1,6 +1,5 @@
-import json
 import os
-
+import json
 from collections import OrderedDict
 
 
@@ -39,7 +38,7 @@ class ExifToolGUISettings:
         return self.raw['tags_for_group']
 
     @property
-    def tags_for_single(self) -> dict[str,list[str]]:
+    def tags_for_single(self) -> dict[str, list[str]]:
         return self.raw['tags_for_single']
 
     @property
@@ -78,11 +77,11 @@ class ExifToolGUISettings:
         return self.raw['functions']
 
     @property
-    def composite_tags(self) -> dict[str,dict[str,]]:
+    def composite_tags(self) -> dict[str, dict[str,]]:
         return self.raw['composite_tags']
 
     @property
-    def condition_tags(self) -> dict[str,dict[str,dict[str,str]]]:
+    def condition_tags(self) -> dict[str, dict[str, dict[str, str]]]:
         return self.raw['condition_tags']
 
     def load(self) -> dict:

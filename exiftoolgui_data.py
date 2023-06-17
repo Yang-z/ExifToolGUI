@@ -1,17 +1,16 @@
 import os
 import locale
 import base64
-
-from datetime import datetime, timezone, timedelta
 import re
+from datetime import datetime, timezone, timedelta
 
-import exiftool
+import atexit
+
+# import exiftool
 from exiftool.helper import ExifToolHelper, ExifToolExecuteError
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
-
-import atexit
 
 
 class ExifToolGUIData:
@@ -25,7 +24,7 @@ class ExifToolGUIData:
         return cls._instance
 
     def __init__(self) -> None:
-        self.exiftool = exiftool.ExifToolHelper(common_args=None)
+        self.exiftool = ExifToolHelper(common_args=None)
         '''
         note:
         There is a bug in CPython 3.8+ on Windows where terminate() does not work during __del__()
@@ -55,37 +54,9 @@ class ExifToolGUIData:
                     unsaved[file_index][tag_edited] = value_edited
         return unsaved
 
-    def read_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
-        result: dict[str,] = {'SourceFile': file}
-        try:
-            result.update(self.exiftool.get_tags(file, tags, params)[0])
-        except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Read:{process_name}', e.stderr)
-        except UnicodeEncodeError as e:
-            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Read:{process_name}', str(e))
-        except Exception as e:
-            self.log(file, f'ExifToolGUI:Error:Unknow:Read:{process_name}', str(e))
-        return result
-
-    def write_tags(self, file: str, tags: list[str], params: list[str], process_name) -> bool:
-        try:
-            r: str = self.exiftool.set_tags(file, tags, params)
-            if r:
-                self.log(file, f'ExifTool:Info:Write:{process_name}', r)
-            return True
-        except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Write:{process_name}', e.stderr)
-        except UnicodeEncodeError as e:
-            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Write:{process_name}', str(e))
-        except Exception as e:
-            self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
-        return False
-
-    def log(self, source_file: str, type: str, message: str):
-        message = str(message).strip()
-        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
-        print(log)
+    '''################################################################
+    Load
+    ################################################################'''
 
     def reload(self) -> None:
         self.cache.clear()
@@ -161,6 +132,10 @@ class ExifToolGUIData:
                 b: bytes = base64.b64decode(s[7:])
                 return b
         return default
+
+    '''################################################################
+    Edit and Save
+    ################################################################'''
 
     def edit(self, file_index: int, tag: str, value, save=False):
         if tag == None or tag == '' or (' ' in tag):
@@ -265,6 +240,10 @@ class ExifToolGUIData:
 
                 if failed:
                     self.cache_failed[file_index][tag_unsaved] = value_edited
+
+    '''################################################################
+    Get and Set
+    ################################################################'''
 
     @staticmethod
     def Normalise_Tag(tag: str) -> str:
@@ -447,6 +426,42 @@ class ExifToolGUIData:
                         return self.resolve_condition_tag(file_index, tag)
                     else:
                         return candidate_tag
+
+    '''################################################################
+    IO and Log
+    ################################################################'''
+
+    def read_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
+        result: dict[str,] = {'SourceFile': file}
+        try:
+            result.update(self.exiftool.get_tags(file, tags, params)[0])
+        except ExifToolExecuteError as e:
+            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Read:{process_name}', e.stderr)
+        except UnicodeEncodeError as e:
+            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Read:{process_name}', str(e))
+        except Exception as e:
+            self.log(file, f'ExifToolGUI:Error:Unknow:Read:{process_name}', str(e))
+        return result
+
+    def write_tags(self, file: str, tags: list[str], params: list[str], process_name) -> bool:
+        try:
+            r: str = self.exiftool.set_tags(file, tags, params)
+            if r:
+                self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+            return True
+        except ExifToolExecuteError as e:
+            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Write:{process_name}', e.stderr)
+        except UnicodeEncodeError as e:
+            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Write:{process_name}', str(e))
+        except Exception as e:
+            self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
+        return False
+
+    def log(self, source_file: str, type: str, message: str):
+        message = str(message).strip()
+        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
+        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
+        print(log)
 
 
 if __name__ == "__main__":

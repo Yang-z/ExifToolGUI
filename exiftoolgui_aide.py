@@ -62,7 +62,7 @@ class ExifToolGUIAide:
         # try iso
         if dt == None:
             try:
-                dt = datetime.fromisoformat(datetime_string)
+                dt = datetime.fromisoformat(datetime_str)
             except ValueError as e:
                 print(e)
 

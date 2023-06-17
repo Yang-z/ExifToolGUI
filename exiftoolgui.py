@@ -1,6 +1,6 @@
 import sys
 
-from PySide6 import QtCore
+# from PySide6 import QtCore
 from PySide6.QtCore import *  # QFile
 from PySide6.QtUiTools import *  # QUiLoader
 from PySide6.QtWidgets import *
@@ -29,12 +29,15 @@ class ExifToolGUI():
         # # use @property to get dynamically
 
         self.adjust_main_window()
+
+        self.reload_list_for_dirs()  # reload_table_for_group()
+
         self.load_tabs_for_single()
-        self.load_layout_exiftool_options()
-        self.reload_list_for_dirs()
         self.load_comboBox_functions()
+        self.load_layout_exiftool_options()
 
         self.add_event_handlers()
+
         self.main_window.show()
         sys.exit(self.app.exec())
 
@@ -117,64 +120,6 @@ class ExifToolGUI():
         # self.table_for_group.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         # self.table_for_group.verticalHeader().setSectionsMovable(True)
 
-    def load_tabs_for_single(self):
-        tab_wedget: QTabWidget = self.tab_for_single
-
-        tab_wedget.currentChanged.connect(self.on_current_changed__tab_for_single)  # EVENT
-
-        for tab_type in self.settings.tags_for_single.keys():
-
-            widget: QWidget = QWidget()
-            tab_wedget.addTab(widget, tab_type)
-
-            tree: QTreeWidget = QTreeWidget()
-            tree.setColumnCount(2)
-            tree.setHeaderLabels(["Tag", "Value"])
-
-            tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # UI
-            # tree.setStyleSheet("QTreeWidget::item { border-bottom: 1px solid gray; }")  # style
-
-            tree.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)  # EVENT
-            tree.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)  # EVENT
-            tree.itemChanged.connect(self.on_item_changed__tree_for_single)  # EVENT
-
-            layout = QGridLayout()
-            layout.setContentsMargins(1, 1, 1, 1)  # UI
-            layout.addWidget(tree)
-            widget.setLayout(layout)
-
-    def load_layout_exiftool_options(self):
-        options = self.settings.exiftool_options
-        layout: QGridLayout = self.layout_exiftool_options
-        count_letters = 0
-        for k in options:
-            count_letters += len(k)
-        r = 0
-        c = 0
-        for k, v in options.items():
-            butt = QToolButton()
-            butt.setCheckable(True)
-            butt.setText(k)
-            butt.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-            layout.addWidget(butt, r, c, 1, len(k))  # auto clear?
-            if v == 'auto':
-                butt.setChecked(False)
-                butt.setEnabled(False)
-            elif v == 'forced':
-                butt.setChecked(True)
-                butt.setEnabled(False)
-            elif v == 'on':
-                butt.setChecked(True)
-                butt.setEnabled(True)
-            elif v == 'off':
-                butt.setChecked(False)
-                butt.setEnabled(True)
-
-            c += len(k)
-            if c+1 > count_letters/3:
-                r += 1
-                c = 0
-
     def reload_list_for_dirs(self):
         list_dirs: QListWidget = self.list_dirs
         list_dirs.clear()
@@ -231,6 +176,32 @@ class ExifToolGUI():
             table.setColumnWidth(0, 300)
 
         table.blockSignals(False)
+
+    def load_tabs_for_single(self):
+        tab_wedget: QTabWidget = self.tab_for_single
+
+        tab_wedget.currentChanged.connect(self.on_current_changed__tab_for_single)  # EVENT
+
+        for tab_type in self.settings.tags_for_single.keys():
+
+            widget: QWidget = QWidget()
+            tab_wedget.addTab(widget, tab_type)
+
+            tree: QTreeWidget = QTreeWidget()
+            tree.setColumnCount(2)
+            tree.setHeaderLabels(["Tag", "Value"])
+
+            tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # UI
+            # tree.setStyleSheet("QTreeWidget::item { border-bottom: 1px solid gray; }")  # style
+
+            tree.itemDoubleClicked.connect(self.on_item_double_clicked__tree_for_single)  # EVENT
+            tree.currentItemChanged.connect(self.on_current_item_changed__tree_for_single)  # EVENT
+            tree.itemChanged.connect(self.on_item_changed__tree_for_single)  # EVENT
+
+            layout = QGridLayout()
+            layout.setContentsMargins(1, 1, 1, 1)  # UI
+            layout.addWidget(tree)
+            widget.setLayout(layout)
 
     def reload_current_tree_for_single(self):
         tab_wedget = self.tab_for_single
@@ -371,8 +342,40 @@ class ExifToolGUI():
                 r = 0
                 c += 1
 
+    def load_layout_exiftool_options(self):
+        options = self.settings.exiftool_options
+        layout: QGridLayout = self.layout_exiftool_options
+        count_letters = 0
+        for k in options:
+            count_letters += len(k)
+        r = 0
+        c = 0
+        for k, v in options.items():
+            butt = QToolButton()
+            butt.setCheckable(True)
+            butt.setText(k)
+            butt.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+            layout.addWidget(butt, r, c, 1, len(k))  # auto clear?
+            if v == 'auto':
+                butt.setChecked(False)
+                butt.setEnabled(False)
+            elif v == 'forced':
+                butt.setChecked(True)
+                butt.setEnabled(False)
+            elif v == 'on':
+                butt.setChecked(True)
+                butt.setEnabled(True)
+            elif v == 'off':
+                butt.setChecked(False)
+                butt.setEnabled(True)
+
+            c += len(k)
+            if c+1 > count_letters/3:
+                r += 1
+                c = 0
+
     '''################################################################
-    Editting and results
+    Editting and Functions
     ################################################################'''
 
     def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False):
@@ -475,7 +478,7 @@ class ExifToolGUI():
                         widget = sub_layout.itemAt(0).widget()
 
                         if type(widget) == QCheckBox:
-                            checkBox:QCheckBox = widget
+                            checkBox: QCheckBox = widget
                             dict_args[checkBox.text()] = checkBox.isChecked()
 
                         elif type(widget) == QLabel:
@@ -501,13 +504,8 @@ class ExifToolGUI():
         self.table_for_group.currentItemChanged.connect(self.on_current_item_changed__table_for_group)
         self.table_for_group.itemChanged.connect(self.on_item_changed__table_for_group)
 
-        self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged_4_comboBox_functions)
+        self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged__comboBox_functions)
         self.pushButton_functions_exec.clicked.connect(self.on_clicked__pushButton_functions_exec)
-
-    def on_clicked__button_save(self, checked=False):
-        self.data.save()
-        self.edit_table_for_group()
-        self.edit_current_tree_for_single()
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
@@ -524,6 +522,11 @@ class ExifToolGUI():
         dir = list_dirs_curr.text()
         self.settings.remove_dir(dir)
         self.reload_list_for_dirs()
+
+    def on_clicked__button_save(self, checked=False):
+        self.data.save()
+        self.edit_table_for_group()
+        self.edit_current_tree_for_single()
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):
         # print(f"{current.row()}, {current.column()}")
@@ -572,7 +575,7 @@ class ExifToolGUI():
         # self.edit_tree_for_single(item.treeWidget())
         self.edit_current_tree_for_single()
 
-    def on_currentIndexChanged_4_comboBox_functions(self, index):
+    def on_currentIndexChanged__comboBox_functions(self, index):
         self.reload_groupBox_parameters()
 
     def on_clicked__pushButton_functions_exec(self):
