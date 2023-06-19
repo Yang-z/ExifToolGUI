@@ -309,7 +309,7 @@ class ExifToolGUIData:
         return value if value != None else default
 
     def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
-        composite_tag_def = self.settings.composite_tags.get(tag, None)
+        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
         if composite_tag_def:
 
             result = ""
@@ -382,7 +382,7 @@ class ExifToolGUIData:
         return result
 
     def resolve_composite_value(self, tag: str, value) -> dict[str,]:
-        composite_tag_def = self.settings.composite_tags.get(tag, None)
+        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
         if composite_tag_def:
             pattern = composite_tag_def['pattern']
 
@@ -409,7 +409,8 @@ class ExifToolGUIData:
         return self.get(file_index, tag_r, default, strict, editing)
 
     def resolve_condition_tag(self, file_index: int, tag: str):
-        condition_tag_def = self.settings.condition_tags.get(tag, None)
+        # condition_tag_def = self.settings.condition_tags.get(tag, None)
+        condition_tag_def = ExifToolGUIData.Get(self.settings.condition_tags, tag, None)
         if condition_tag_def:
             for candidate_tag, condition in condition_tag_def.items():
 
@@ -426,6 +427,60 @@ class ExifToolGUIData:
                         return self.resolve_condition_tag(file_index, tag)
                     else:
                         return candidate_tag
+
+    def is_datetime(self, tag)->bool:
+        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag, None)
+        return (detatime_tag_def != None)
+
+    def get_datetime(self, file_index: int, tag: str, value:str = None, default_timezone: str = None) -> datetime:
+        # resolve tag to normal tag or composite tag
+        tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+
+        # value could be specified or got from cache
+        value = value if value else self.get(file_index, tag)
+
+        # if user does not specify a default timezone, use one specified by settings
+        default_timezone = default_timezone if default_timezone else self.settings.default_timezone
+
+        if value:
+            dt: datetime = ExifToolGUIAide.Str_to_Datetime(value)
+            if dt and dt.tzinfo == None:
+                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
+                if detatime_tag_def:
+                    # some tags may implicit specify timezone info as UTC, i.e. QuickTime:CreateDate
+                    as_utc: bool = detatime_tag_def.get('as_utc', None)
+                    if as_utc:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                if dt.tzinfo == None:
+                    # fix by user specified timezone
+                    dt = dt.replace(tzinfo=ExifToolGUIAide.Str_to_Timezone(default_timezone))
+                if dt.tzinfo == None:
+                    self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
+            return dt
+
+    def resolve_datetime(self, file_index: int, tag: str, dt:datetime, default_timezone: str)->str:
+        if dt:
+            tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+            
+            if dt.tzinfo == None:
+                self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "naive datetime is passed")
+            else:
+                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
+                if detatime_tag_def:
+                    as_utc: bool = detatime_tag_def.get('as_utc', None)
+                    if as_utc:
+                        dt = dt.astimezone(timezone.utc)
+                    else:
+                        dt = dt.astimezone(ExifToolGUIAide.Str_to_Timezone(default_timezone))
+
+                    is_timezone_explicit:bool = detatime_tag_def.get('is_timezone_explicit', None)
+                    if is_timezone_explicit == False:
+                        dt = dt.replace(tzinfo=None)
+                else:
+                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
+
+            return ExifToolGUIAide.Datetime_to_Str(dt)
+
 
     '''################################################################
     IO and Log
@@ -457,10 +512,12 @@ class ExifToolGUIData:
             self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
         return False
 
-    def log(self, source_file: str, type: str, message: str):
+    def log(self, source_file: str, cat: str, message: str):
         message = str(message).strip()
         datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        log = f"{datetime_str} [{type}]:\n  SourceFile: {source_file}\n  {message}"
+        if type(source_file) == int:
+            source_file = self.cache[source_file]['SourceFile']
+        log = f"{datetime_str} [{cat}]:\n  SourceFile: {source_file}\n  {message}"
         print(log)
 
 

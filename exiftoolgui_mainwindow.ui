@@ -43,7 +43,7 @@
         </size>
        </property>
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="menu_file">
         <property name="sizePolicy">
@@ -595,9 +595,6 @@ li.checked::marker { content: &quot;\2612&quot;; }
         </property>
         <property name="selectionBehavior">
          <enum>QAbstractItemView::SelectRows</enum>
-        </property>
-        <property name="sortingEnabled">
-         <bool>true</bool>
         </property>
         <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
          <bool>true</bool>

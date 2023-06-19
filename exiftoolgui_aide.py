@@ -17,11 +17,13 @@ class ExifToolGUIAide:
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str, default_timezone: str = '') -> datetime:
-        # default_tz, a option for users to avoid naive datetime
-        tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
+    def Str_to_Datetime(datetime_str: str) -> datetime:
+        if not datetime_str:
+            return
 
+        tz = None
         dt = None
+
         # try common
         pattern = (
             r"(?P<year>\d{4})"
@@ -85,6 +87,14 @@ class ExifToolGUIAide:
 
     @staticmethod
     def Str_to_Timezone(timezone_str: str) -> timezone:
+        if not timezone_str:
+            return
+
+        if timezone_str == 'local':
+            local_offset = datetime.now(timezone.utc).astimezone().utcoffset()
+            local_tz = timezone(local_offset)
+            return local_tz
+
         tz = None
         pattern = (
             r"(?:(?P<positive>[-+])[ ]?)"
@@ -130,19 +140,21 @@ class ExifToolGUIAide:
 
 
 if __name__ == "__main__":
-    date_string = "2023:05:17 15:54:30.00 -08:00:00"
-    print(date_string)
+    # date_string = "2023:05:17 15:54:30.00 -08:00:00"
+    # print(date_string)
 
-    dt = ExifToolGUIAide.Str_to_Datetime(date_string)
-    print(dt)
+    # dt = ExifToolGUIAide.Str_to_Datetime(date_string)
+    # print(dt)
 
-    dt_s = ExifToolGUIAide.Datetime_to_Str(dt)
-    print(dt_s)
+    # dt_s = ExifToolGUIAide.Datetime_to_Str(dt)
+    # print(dt_s)
 
-    td_str = "-1.5"
-    print(ExifToolGUIAide.Str_to_Timedelt(td_str))
+    # td_str = "-1.5"
+    # print(ExifToolGUIAide.Str_to_Timedelt(td_str))
 
-    tz_str = "+0800"
-    tz = ExifToolGUIAide.Str_to_Timezone(tz_str)
-    print(str(tz))
+    # tz_str = "+0800"
+    # tz = ExifToolGUIAide.Str_to_Timezone(tz_str)
+    # print(str(tz))
+
+    print(ExifToolGUIAide.Str_to_Timezone('local'))
     

@@ -5,6 +5,7 @@
   },
   "dirs": [],
   "tags_for_group": [
+    "SourceFile",
     "?Timeline",
     "File:FileModifyDate",
     "EXIF:DateTimeOriginal",
@@ -86,7 +87,8 @@
   "exiftoolgui_options": {
     "auto_save": false,
     "max_group_level": 1,
-    "simplify_group_level": true
+    "simplify_group_level": true,
+    "default_timezone": "local"
   },
   "functions": {
     "rename": {
@@ -110,7 +112,7 @@
       },
       "default_timezone": {
         "type": "timezone",
-        "default": ""
+        "default": "local"
       }
     },
     "shift_datetime": {
@@ -128,7 +130,7 @@
       },
       "default_timezone": {
         "type": "timezone",
-        "default": ""
+        "default": "local"
       }
     }
   },
@@ -172,6 +174,72 @@
         "to_be_tested": "<File:FileTypeExtension>",
         "pattern": "(?i)mp4?"
       }
+    }
+  },
+  "datetime_tags": {
+    "?Timeline": {
+      "standard_timezone": null,
+      "is_timezone_explicit": null
+    },
+    "&EXIF:DateTimeOriginal": {
+      "as_utc": false,
+      "is_timezone_explicit": true
+    },
+    "EXIF:DateTimeOriginal": {
+      "as_utc": false,
+      "is_timezone_explicit": false
+    },
+    "&EXIF:CreateDate": {
+      "as_utc": false,
+      "is_timezone_explicit": true
+    },
+    "EXIF:CreateDate": {
+      "as_utc": false,
+      "is_timezone_explicit": false
+    },
+    "&EXIF:ModifyDate": {
+      "as_utc": false,
+      "is_timezone_explicit": true
+    },
+    "EXIF:ModifyDate": {
+      "as_utc": false,
+      "is_timezone_explicit": false
+    },
+    "&EXIF:GPSTimeStamp": {
+      "as_utc": true,
+      "is_timezone_explicit": true
+    },
+    "&QuickTime:CreateDate": {
+      "as_utc": true,
+      "is_timezone_explicit": true
+    },
+    "QuickTime:CreateDate": {
+      "as_utc": true,
+      "is_timezone_explicit": false
+    },
+    "&QuickTime:ModifyDate": {
+      "as_utc": true,
+      "is_timezone_explicit": true
+    },
+    "QuickTime:ModifyDate": {
+      "as_utc": true,
+      "is_timezone_explicit": false
+    },
+    "&QuickTime:GPSTimeStamp": {
+      "as_utc": true,
+      "is_timezone_explicit": true
+    },
+    "File:FileModifyDate": {
+      "as_utc": false,
+      "is_timezone_explicit": true
+    },
+    "File:FileAccessDate": {
+      "as_utc": false,
+      "is_timezone_explicit": true
+    },
+    "File:FileCreateDate": {
+      "as_utc": false,
+      "is_timezone_explicit": true
     }
   }
 }

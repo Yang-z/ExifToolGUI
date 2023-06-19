@@ -71,6 +71,10 @@ class ExifToolGUISettings:
     @property
     def simplify_group_level(self) -> bool:
         return self.raw['exiftoolgui_options']['simplify_group_level']
+    
+    @property
+    def default_timezone(self) -> str:
+        return self.raw['exiftoolgui_options']['default_timezone'] 
 
     @property
     def functions(self) -> dict[str, dict[str, dict[str,]]]:
@@ -79,6 +83,10 @@ class ExifToolGUISettings:
     @property
     def composite_tags(self) -> dict[str, dict[str,]]:
         return self.raw['composite_tags']
+
+    @property
+    def datetime_tags(self) -> dict[str, dict[str,]]:
+        return self.raw['datetime_tags']
 
     @property
     def condition_tags(self) -> dict[str, dict[str, dict[str, str]]]:

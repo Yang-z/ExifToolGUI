@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime, timezone, timedelta
 
 # from PySide6 import QtCore
 from PySide6.QtCore import *  # QFile
@@ -133,7 +134,7 @@ class ExifToolGUI():
         table.blockSignals(True)
         table.clear()
 
-        tags = ['SourceFile'] + self.settings.tags_for_group
+        tags = self.settings.tags_for_group
         tags_count = len(tags)
         table.setColumnCount(tags_count)
         table.setHorizontalHeaderLabels(tags)
@@ -174,6 +175,54 @@ class ExifToolGUI():
         table.resizeRowsToContents()
         if table.columnWidth(0) > 300:
             table.setColumnWidth(0, 300)
+
+        table.blockSignals(False)
+
+    def sort_table_for_group(self, column):
+        table = self.table_for_group
+        order = table.horizontalHeader().sortIndicatorOrder()
+
+        h_tag = table.horizontalHeaderItem(column).text()
+        is_datetime = self.data.is_datetime(h_tag)
+
+        current_item = table.currentItem()
+        selected_items = table.selectedItems()
+
+        table.blockSignals(True)
+
+        rows = []
+        for row in range(table.rowCount()):
+            items = []
+            for col in range(table.columnCount()):
+                item = table.takeItem(row, col)
+                items.append(item)
+            rows.append(items)
+
+        table.clearSelection()
+
+        def sort_value(row: list[QTableWidgetItem]):
+            value = row[column].text()
+            if is_datetime:
+                file_index: int = row[column].data(Qt.UserRole)['file_index']
+                tag: str = row[column].data(Qt.UserRole)['tag']
+                dt = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
+                return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
+            else:
+                return value
+
+        rows.sort(
+            key=lambda row: sort_value(row),
+            reverse=(order == Qt.DescendingOrder)
+        )
+
+        for row, items in enumerate(rows):
+            for col, item in enumerate(items):
+                table.setItem(row, col, item)
+
+        table.setCurrentItem(current_item)
+        table.clearSelection()
+        for item in selected_items:
+            item.setSelected(True)
 
         table.blockSignals(False)
 
@@ -503,6 +552,7 @@ class ExifToolGUI():
         # 点击任意按钮，再切换tab便触发？
         self.table_for_group.currentItemChanged.connect(self.on_current_item_changed__table_for_group)
         self.table_for_group.itemChanged.connect(self.on_item_changed__table_for_group)
+        self.table_for_group.horizontalHeader().sectionClicked.connect(self.sort_table_for_group)
 
         self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged__comboBox_functions)
         self.pushButton_functions_exec.clicked.connect(self.on_clicked__pushButton_functions_exec)
