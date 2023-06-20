@@ -1,18 +1,17 @@
 {
   "assets": {
-    "ui": "exiftoolgui_mainwindow.ui",
-    "no_preview": "./assets/no_preview.jpg"
+    "ui": "exiftoolgui_mainwindow.ui"
   },
   "dirs": [],
   "tags_for_group": [
     "SourceFile",
     "?Timeline",
     "File:FileModifyDate",
-    "EXIF:DateTimeOriginal",
-    "EXIF:CreateDate",
-    "EXIF:ModifyDate",
-    "QuickTime:CreateDate",
-    "QuickTime:ModifyDate"
+    "&EXIF:DateTimeOriginal",
+    "&EXIF:CreateDate",
+    "&EXIF:ModifyDate",
+    "&QuickTime:CreateDate",
+    "&QuickTime:ModifyDate"
   ],
   "tags_for_single": {
     "all": [],
@@ -137,42 +136,42 @@
   "composite_tags": {
     "&EXIF:DateTimeOriginal": {
       "format": "(<EXIF:DateTimeOriginal>)(.<EXIF:SubSecTimeOriginal>)(<EXIF:OffsetTimeOriginal>)",
-      "pattern": "(?P<EXIF:DateTimeOriginal>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeOriginal>\\d+))?(?P<EXIF:OffsetTimeOriginal>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+      "pattern": "(?P<EXIF:DateTimeOriginal>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeOriginal>\\d+))?(?: *)(?P<EXIF:OffsetTimeOriginal>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
     },
     "&EXIF:CreateDate": {
       "format": "(<EXIF:CreateDate>)(.<EXIF:SubSecTimeDigitized>)(<EXIF:OffsetTimeDigitized>)",
-      "pattern": "(?P<EXIF:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeDigitized>\\d+))?(?P<EXIF:OffsetTimeDigitized>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+      "pattern": "(?P<EXIF:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeDigitized>\\d+))?(?: *)(?P<EXIF:OffsetTimeDigitized>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
     },
     "&EXIF:ModifyDate": {
       "format": "(<EXIF:ModifyDate>)(.<EXIF:SubSecTime>)(<EXIF:OffsetTime>)",
-      "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+      "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?: *)(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
     },
     "&EXIF:GPSTimeStamp": {
       "format": "(<EXIF:GPSDateStamp> <EXIF:GPSTimeStamp>+00:00)",
-      "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?:[+-]00:00)?"
+      "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
     },
     "&QuickTime:CreateDate": {
       "format": "(<QuickTime:CreateDate>+00:00)",
-      "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?:[+-]00:00)?"
+      "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
     },
     "&QuickTime:ModifyDate": {
       "format": "(<QuickTime:ModifyDate>+00:00)",
-      "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?:[+-]00:00)?"
+      "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
     },
     "&QuickTime:GPSTimeStamp": {
       "format": "(<QuickTime:GPSDateTime> <QuickTime:GPSTimeStamp>+00:00)",
-      "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?:[+-]00:00)?"
+      "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
     }
   },
   "condition_tags": {
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
         "to_be_tested": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpge?"
+        "pattern": "(?i)jpe?g|tiff?"
       },
       "&QuickTime:CreateDate": {
         "to_be_tested": "<File:FileTypeExtension>",
-        "pattern": "(?i)mp4?"
+        "pattern": "(?i)mp4"
       }
     }
   },

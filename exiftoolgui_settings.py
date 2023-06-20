@@ -26,10 +26,6 @@ class ExifToolGUISettings:
         return self.raw['assets']['ui']
 
     @property
-    def assets_no_preview(self) -> str:
-        return self.raw['assets']['no_preview']
-
-    @property
     def dirs(self) -> list:
         return self.raw['dirs']
 
@@ -71,10 +67,10 @@ class ExifToolGUISettings:
     @property
     def simplify_group_level(self) -> bool:
         return self.raw['exiftoolgui_options']['simplify_group_level']
-    
+
     @property
     def default_timezone(self) -> str:
-        return self.raw['exiftoolgui_options']['default_timezone'] 
+        return self.raw['exiftoolgui_options']['default_timezone']
 
     @property
     def functions(self) -> dict[str, dict[str, dict[str,]]]:
