@@ -110,8 +110,8 @@ class ExifToolGUIData:
                     if fixed:
                         ExifToolGUIData.Set(metadata, tag_b, fixed)
 
-    def load_thumbnail(self, file_index: int, default=None) -> bytes:
-        file = self.cache[file_index]['SourceFile']
+    def load_thumbnail(self, file_index: int) -> bytes:
+        file = self.cache[file_index]['SourceFile'] if (type(file_index) == int) else file_index
 
         # ref: https://exiftool.org/forum/index.php?topic=4216
         tag_thum: list[str] = [
@@ -131,7 +131,6 @@ class ExifToolGUIData:
             if s.startswith('base64:'):
                 b: bytes = base64.b64decode(s[7:])
                 return b
-        return default
 
     '''################################################################
     Edit and Save
@@ -386,6 +385,15 @@ class ExifToolGUIData:
         if composite_tag_def:
             pattern = composite_tag_def['pattern']
 
+            # empty string will not match, but deleting value should be supported
+            # none-empty but non-matching string will not delete value.
+            if value == "":
+                empty_value_dict = {}
+                tags = re.finditer(r'<(.*?)>', pattern)
+                for tag in tags:
+                    empty_value_dict[tag.group(1)] = ""
+                return empty_value_dict
+
             # python regular expression does not support colon in group name
             pattern_n = re.sub(
                 r'<([^>]*)>',
@@ -401,7 +409,6 @@ class ExifToolGUIData:
                 match_dict = {key.replace('__COLON__', ':'): value if value != None else '' for key, value in match_dict_n.items()}
 
                 return match_dict
-
         return {}
 
     def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
@@ -428,11 +435,15 @@ class ExifToolGUIData:
                     else:
                         return candidate_tag
 
-    def is_datetime(self, tag)->bool:
+    '''################################################################
+    Datetime
+    ################################################################'''
+
+    def is_datetime(self, tag) -> bool:
         detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag, None)
         return (detatime_tag_def != None)
 
-    def get_datetime(self, file_index: int, tag: str, value:str = None, default_timezone: str = None) -> datetime:
+    def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> datetime:
         # resolve tag to normal tag or composite tag
         tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
 
@@ -458,10 +469,10 @@ class ExifToolGUIData:
                     self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
             return dt
 
-    def resolve_datetime(self, file_index: int, tag: str, dt:datetime, default_timezone: str)->str:
+    def resolve_datetime(self, file_index: int, tag: str, dt: datetime, default_timezone: str) -> str:
         if dt:
             tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
-            
+
             if dt.tzinfo == None:
                 self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "naive datetime is passed")
             else:
@@ -473,14 +484,13 @@ class ExifToolGUIData:
                     else:
                         dt = dt.astimezone(ExifToolGUIAide.Str_to_Timezone(default_timezone))
 
-                    is_timezone_explicit:bool = detatime_tag_def.get('is_timezone_explicit', None)
+                    is_timezone_explicit: bool = detatime_tag_def.get('is_timezone_explicit', None)
                     if is_timezone_explicit == False:
                         dt = dt.replace(tzinfo=None)
                 else:
                     self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
 
             return ExifToolGUIAide.Datetime_to_Str(dt)
-
 
     '''################################################################
     IO and Log

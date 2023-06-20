@@ -112,11 +112,11 @@ class ExifToolGUIAide:
                 seconds=float(match.group('tz_second')) * positive if match.group('tz_second') else 0,
             )
             tz = timezone(td)
-            
+
         return tz
 
     @staticmethod
-    def Str_to_Timedelt(td_str: str) ->timezone:
+    def Str_to_Timedelt(td_str: str) -> timezone:
         td: timedelta = None
         pattern = (
             r"(?:(?P<positive>[-+])[ ]?)?"
@@ -157,4 +157,3 @@ if __name__ == "__main__":
     # print(str(tz))
 
     print(ExifToolGUIAide.Str_to_Timezone('local'))
-    

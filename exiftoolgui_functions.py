@@ -83,7 +83,7 @@ class ExifToolGUIFuncs:
             original_dt = self.data.get_datetime(i, tag, None, default_timezone=default_timezone)
             shifted_dt = original_dt + td
 
-            shifted_dt_str = self.data.resolve_datetime(i,tag,shifted_dt,default_timezone)
+            shifted_dt_str = self.data.resolve_datetime(i, tag, shifted_dt, default_timezone)
 
             # if shifted_dt_str != original_dt_str:
             self.data.edit(i, tag, shifted_dt_str)
