@@ -1,10 +1,10 @@
 import os
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 
 from exiftoolgui_aide import ExifToolGUIAide
-from exiftoolgui_data import ExifToolGUIData
 from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_data import ExifToolGUIData
 
 
 class ExifToolGUIFuncs:
@@ -60,30 +60,27 @@ class ExifToolGUIFuncs:
 
     def copy_datetime(self, file_indexes: list[int], ref: int, from_tag: str, to_tags: str, default_timezone: str) -> None:
         list_to_tags = [tag for tag in to_tags.split(' ') if tag != ""]
-        default_tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
-
         for i in file_indexes:
-            dt = self.data.get_datetime(i, from_tag, None, default_timezone=default_timezone)
-
+            dt_ = self.data.get_datetime(i, from_tag, None, default_timezone=default_timezone)
             for to_tag in list_to_tags:
-                resolved: str = self.data.resolve_datetime(i, to_tag, dt, default_timezone=default_timezone)
+                resolved: str = self.data.resolve_datetime(i, to_tag, dt_)
                 self.data.edit(i, to_tag, resolved)
 
     def shift_datetime(self, file_indexes: list[int], ref: int, tag: str, to_datetime: str, by_timedelt: str, default_timezone: str) -> None:
         td: timedelta = None
         if to_datetime:
-            ref_dt = self.data.get_datetime(ref, tag, None, default_timezone=default_timezone)
+            ref_dt, _ = self.data.get_datetime(ref, tag, None, default_timezone=default_timezone)
             # to_dt = ExifToolGUIAide.Str_to_Datetime(to_datetime, default_timezone)
-            to_dt = self.data.get_datetime(ref, tag, to_datetime, default_timezone=default_timezone)
+            to_dt, _ = self.data.get_datetime(ref, tag, to_datetime, default_timezone=default_timezone)
             td = to_dt - ref_dt
         else:
             td = ExifToolGUIAide.Str_to_Timedelt(by_timedelt)
 
         for i in file_indexes:
-            original_dt = self.data.get_datetime(i, tag, None, default_timezone=default_timezone)
+            original_dt, has_subsec = self.data.get_datetime(i, tag, None, default_timezone=default_timezone)
             shifted_dt = original_dt + td
 
-            shifted_dt_str = self.data.resolve_datetime(i, tag, shifted_dt, default_timezone)
+            shifted_dt_str = self.data.resolve_datetime(i, tag, (shifted_dt, has_subsec))
 
             # if shifted_dt_str != original_dt_str:
             self.data.edit(i, tag, shifted_dt_str)

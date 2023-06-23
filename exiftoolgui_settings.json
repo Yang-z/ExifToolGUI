@@ -34,11 +34,12 @@
       "EXIF:SubSecTime",
       "EXIF:OffsetTime",
       "EXIF:TimeZoneOffset",
-      "&EXIF:GPSTimeStamp",
+      "&EXIF:GPSDateTime",
       "EXIF:GPSDateStamp",
       "EXIF:GPSTimeStamp",
       "&QuickTime:CreateDate",
       "QuickTime:CreateDate",
+      "&QuickTime:ModifyDate",
       "QuickTime:ModifyDate",
       "&QuickTime:GPSTimeStamp",
       "QuickTime:GPSDateTime",
@@ -87,7 +88,8 @@
     "auto_save": false,
     "max_group_level": 1,
     "simplify_group_level": true,
-    "default_timezone": "local"
+    "default_timezone": "local",
+    "preview_size": 64
   },
   "functions": {
     "rename": {
@@ -146,7 +148,7 @@
       "format": "(<EXIF:ModifyDate>)(.<EXIF:SubSecTime>)(<EXIF:OffsetTime>)",
       "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?: *)(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
     },
-    "&EXIF:GPSTimeStamp": {
+    "&EXIF:GPSDateTime": {
       "format": "(<EXIF:GPSDateStamp> <EXIF:GPSTimeStamp>+00:00)",
       "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
     },
@@ -166,11 +168,11 @@
   "condition_tags": {
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
-        "to_be_tested": "<File:FileTypeExtension>",
+        "condition": "<File:FileTypeExtension>",
         "pattern": "(?i)jpe?g|tiff?"
       },
       "&QuickTime:CreateDate": {
-        "to_be_tested": "<File:FileTypeExtension>",
+        "condition": "<File:FileTypeExtension>",
         "pattern": "(?i)mp4"
       }
     }
@@ -178,67 +180,83 @@
   "datetime_tags": {
     "?Timeline": {
       "standard_timezone": null,
-      "is_timezone_explicit": null
+      "is_timezone_explicit": null,
+      "support_subsec": null
     },
     "&EXIF:DateTimeOriginal": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     },
     "EXIF:DateTimeOriginal": {
       "as_utc": false,
-      "is_timezone_explicit": false
+      "is_timezone_explicit": false,
+      "support_subsec": false
     },
     "&EXIF:CreateDate": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     },
     "EXIF:CreateDate": {
       "as_utc": false,
-      "is_timezone_explicit": false
+      "is_timezone_explicit": false,
+      "support_subsec": false
     },
     "&EXIF:ModifyDate": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     },
     "EXIF:ModifyDate": {
       "as_utc": false,
-      "is_timezone_explicit": false
+      "is_timezone_explicit": false,
+      "support_subsec": false
     },
-    "&EXIF:GPSTimeStamp": {
+    "&EXIF:GPSDateTime": {
       "as_utc": true,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": false
     },
     "&QuickTime:CreateDate": {
       "as_utc": true,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": false
     },
     "QuickTime:CreateDate": {
       "as_utc": true,
-      "is_timezone_explicit": false
+      "is_timezone_explicit": false,
+      "support_subsec": false
     },
     "&QuickTime:ModifyDate": {
       "as_utc": true,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": false
     },
     "QuickTime:ModifyDate": {
       "as_utc": true,
-      "is_timezone_explicit": false
+      "is_timezone_explicit": false,
+      "support_subsec": false
     },
     "&QuickTime:GPSTimeStamp": {
       "as_utc": true,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": false
     },
     "File:FileModifyDate": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     },
     "File:FileAccessDate": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     },
     "File:FileCreateDate": {
       "as_utc": false,
-      "is_timezone_explicit": true
+      "is_timezone_explicit": true,
+      "support_subsec": true
     }
   }
 }

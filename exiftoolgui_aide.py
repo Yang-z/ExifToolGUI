@@ -17,12 +17,13 @@ class ExifToolGUIAide:
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str) -> datetime:
-        if not datetime_str:
-            return
+    def Str_to_Datetime(datetime_str: str) -> tuple[datetime, bool]:
+        # if not datetime_str:
+        #     return None, None
 
         tz = None
         dt = None
+        has_subsec: bool = None
 
         # try common
         pattern = (
@@ -61,6 +62,9 @@ class ExifToolGUIAide:
                 tzinfo=tz,
             )
 
+            # tell the function Datetime_to_Str() whether to print subsec
+            has_subsec = bool(match.group('second_fractional'))
+
         # try iso
         if dt == None:
             try:
@@ -68,10 +72,15 @@ class ExifToolGUIAide:
             except ValueError as e:
                 print(e)
 
-        return dt
+        return dt, has_subsec
 
     @staticmethod
-    def Datetime_to_Str(dt: datetime) -> str:
+    def Datetime_to_Str(dt_: tuple[datetime, bool]) -> str:
+        dt, has_subsec = dt_
+
+        if dt == None:
+            return None
+
         dt_s = None
 
         # dt_s = str(dt).replace('-', ':')
@@ -79,7 +88,27 @@ class ExifToolGUIAide:
         # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
 
         # dt_s = dt.strftime('%Y:%m:%d %H:%M:%S.%f') + str(dt.tzinfo).replace('UTC', '')
-        dt_s = str(dt.replace(tzinfo=None)).replace('-', ':')
+
+        # dt_s = str(dt.replace(tzinfo=None)).replace('-', ':') # will not print microsecond if its value is 0
+        # if dt.tzinfo:
+        #     dt_s += str(dt.tzinfo).replace('UTC', '')
+
+        # subsec = '{:06d}'.format(dt.microsecond)
+        # while len(subsec) > 2 and subsec[-1] == '0':
+        #     subsec = subsec[:-1]
+
+        # dt_s = '{}.{}{}'.format(
+        #     dt.strftime('%Y:%m:%d %H:%M:%S'),
+        #     subsec,
+        #     str(dt.tzinfo).replace('UTC', '') if dt.tzinfo else ''
+        # )
+
+        dt_s = dt.strftime('%Y:%m:%d %H:%M:%S')
+        if dt.microsecond != 0 or has_subsec == True:
+            subsec = '{:06d}'.format(dt.microsecond)
+            while len(subsec) > 2 and subsec[-1] == '0':
+                subsec = subsec[:-1]
+            dt_s += '.'+subsec
         if dt.tzinfo:
             dt_s += str(dt.tzinfo).replace('UTC', '')
 
@@ -116,7 +145,7 @@ class ExifToolGUIAide:
         return tz
 
     @staticmethod
-    def Str_to_Timedelt(td_str: str) -> timezone:
+    def Str_to_Timedelt(td_str: str) -> timedelta:
         td: timedelta = None
         pattern = (
             r"(?:(?P<positive>[-+])[ ]?)?"
@@ -140,14 +169,14 @@ class ExifToolGUIAide:
 
 
 if __name__ == "__main__":
-    # date_string = "2023:05:17 15:54:30.00 -08:00:00"
-    # print(date_string)
+    date_string = "2023:05:17 15:54:30.00-08:00"
+    print(date_string)
 
-    # dt = ExifToolGUIAide.Str_to_Datetime(date_string)
-    # print(dt)
+    dt_ = ExifToolGUIAide.Str_to_Datetime(date_string)
+    print(dt_[0], dt_[1])
 
-    # dt_s = ExifToolGUIAide.Datetime_to_Str(dt)
-    # print(dt_s)
+    dt_s = ExifToolGUIAide.Datetime_to_Str(dt_)
+    print(dt_s)
 
     # td_str = "-1.5"
     # print(ExifToolGUIAide.Str_to_Timedelt(td_str))
@@ -156,4 +185,4 @@ if __name__ == "__main__":
     # tz = ExifToolGUIAide.Str_to_Timezone(tz_str)
     # print(str(tz))
 
-    print(ExifToolGUIAide.Str_to_Timezone('local'))
+    # print(ExifToolGUIAide.Str_to_Timezone('local'))

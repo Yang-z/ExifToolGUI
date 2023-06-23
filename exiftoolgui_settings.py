@@ -73,6 +73,10 @@ class ExifToolGUISettings:
         return self.raw['exiftoolgui_options']['default_timezone']
 
     @property
+    def preview_size(self) -> int:
+        return self.raw['exiftoolgui_options']['preview_size']
+
+    @property
     def functions(self) -> dict[str, dict[str, dict[str,]]]:
         return self.raw['functions']
 

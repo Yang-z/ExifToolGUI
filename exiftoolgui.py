@@ -1,6 +1,7 @@
 import sys
 import os
-from datetime import datetime, timezone, timedelta
+
+from datetime import datetime, timezone
 
 # from PySide6 import QtCore
 from PySide6.QtCore import *  # QFile, QUrl
@@ -14,7 +15,6 @@ from PySide6.QtGui import *  # QImage, QPixmap
 
 from exiftoolgui_settings import ExifToolGUISettings
 from exiftoolgui_data import ExifToolGUIData
-# from exiftoolgui_aide import ExifToolGUIAide
 
 
 class ExifToolGUI():
@@ -162,14 +162,9 @@ class ExifToolGUI():
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    pic = self.get_preview(value, 128)
-
+                    pic = self.get_preview(value, self.settings.preview_size)
                     if pic:
                         item.setData(Qt.DecorationRole, pic)
-
-                        # label = QLabel()
-                        # label.setPixmap(pic)
-                        # table.setCellWidget(count_row,count_column,label)
 
                 table.setItem(file_index, column, item)
 
@@ -204,10 +199,11 @@ class ExifToolGUI():
 
         def sort_value(row: list[QTableWidgetItem]):
             value = row[column].text()
+            assert (value != None)
             if is_datetime:
                 file_index: int = row[column].data(Qt.UserRole)['file_index']
                 tag: str = row[column].data(Qt.UserRole)['tag']
-                dt = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
+                dt, _ = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
                 return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
             else:
                 return value
@@ -595,7 +591,7 @@ class ExifToolGUI():
         tag = item.tableWidget().horizontalHeaderItem(item.column()).text()
         value = item.text()
 
-        self.data.edit(file_index, tag, value, save=self.settings.auto_save)
+        self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
         self.edit_table_for_group()
         self.edit_current_tree_for_single()
 
@@ -622,7 +618,7 @@ class ExifToolGUI():
         # tag: str = item.text(2)  # full tag
         tag = item.data(0, Qt.UserRole)
 
-        self.data.edit(file_index, tag, value, save=self.settings.auto_save)
+        self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
         self.edit_table_for_group()
         # self.edit_tree_for_single(item.treeWidget())
         self.edit_current_tree_for_single()

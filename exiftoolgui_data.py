@@ -1,8 +1,10 @@
+from typing import Union, Any
+
 import os
 import locale
 import base64
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 import atexit
 
@@ -11,6 +13,7 @@ from exiftool.helper import ExifToolHelper, ExifToolExecuteError
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
+
 
 
 class ExifToolGUIData:
@@ -136,9 +139,13 @@ class ExifToolGUIData:
     Edit and Save
     ################################################################'''
 
-    def edit(self, file_index: int, tag: str, value, save=False):
-        if tag == None or tag == '' or (' ' in tag):
+    def edit(self, file_index: int, tag: str, value, save: bool = False, normalise: bool = False):
+        if tag == None or tag == '' or (' ' in tag) or value == None:
             return
+
+        if normalise:
+            if self.is_datetime(tag):
+                value = self.normalise_datetime(file_index, tag, value)
 
         if tag.startswith('?'):
             self.edit_condition(file_index, tag, value)
@@ -266,18 +273,18 @@ class ExifToolGUIData:
         return result
 
     @staticmethod
-    def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False):  # Get_Value
+    def Get(metadata: dict[str, ], tag: str, default=None, strict: bool = False) -> Union[str, Any]:  # Get_Value
         item = ExifToolGUIData.Get_Item(metadata, tag, strict=strict, findall=False)
         return next(iter(item.values()), default)
 
     @staticmethod
-    def Set(metadata: dict[str, ], tag: str, value):
+    def Set(metadata: dict[str, ], tag: str, value) -> None:
         item = ExifToolGUIData.Get_Item(metadata, tag, findall=False)
         tag_matched = next(iter(item.keys()), None)
         if tag_matched != None:
             metadata[tag_matched] = value
 
-    def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+    def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         if tag != None and tag.startswith('?'):
             return self.get_condition(file_index, tag, default, strict, editing)
         elif tag != None and tag.startswith('&'):
@@ -285,7 +292,7 @@ class ExifToolGUIData:
         else:
             return self.get_normal(file_index, tag, default, strict, editing)
 
-    def get_normal(self, file_index: int, tag: str, default=None,  strict: bool = False, editing: bool = False):
+    def get_normal(self, file_index: int, tag: str, default=None,  strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         value = ExifToolGUIData.Get(self.cache[file_index], tag, None, strict)
 
         if editing == True:
@@ -307,73 +314,81 @@ class ExifToolGUIData:
 
         return value if value != None else default
 
-    def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+    def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
-        if composite_tag_def:
 
-            result = ""
-            keep_overall = False
+        if composite_tag_def == None:
+            if editing == True:
+                return default, None, None
+            return default
+
+        # composite_tag_def != None now
+
+        result = ""
+        keep_overall = False
+
+        if editing == True:
+            result_edited = ""
+
+            keep_overall_edited = False
+            status_overall = True
+
+        fields = re.finditer(r"\((.*?)\)", composite_tag_def['format'])
+        for field in fields:
+            to_be_replaced = field.group(1)
+            keep_field = False
 
             if editing == True:
-                result_edited = ""
+                to_be_replaced_edited = field.group(1)
+                keep_field_edited = False
 
-                keep_overall_edited = False
-                status_overall = True
+            tags = re.finditer(r'<(.*?)>', field.group(1))
+            for tag in tags:
 
-            fields = re.finditer(r"\((.*?)\)", composite_tag_def['format'])
-            for field in fields:
-                to_be_replaced = field.group(1)
-                keep_field = False
+                if editing != True:
+                    value = self.get(file_index, tag.group(1), None)
+                else:  # editing == True:
+                    value, value_edited, status = self.get(file_index, tag.group(1), None, editing=True)
+
+                if value != None and str(value):  # not None or ''
+                    to_be_replaced = to_be_replaced.replace(tag.group(), str(value))
+                    keep_field = True
+                    keep_overall = True
+                else:
+                    to_be_replaced = to_be_replaced.replace(tag.group(), '')
 
                 if editing == True:
-                    to_be_replaced_edited = field.group(1)
-                    keep_field_edited = False
+                    if value_edited != None:
+                        keep_overall_edited = True
+                        if status == None:
+                            status_overall = None
+                        elif status == False:
+                            if status_overall != None:
+                                status_overall = False
 
-                tags = re.finditer(r'<(.*?)>', field.group(1))
-                for tag in tags:
+                    value_fallback = value_edited if value_edited != None else value
 
-                    if editing != True:
-                        value = self.get(file_index, tag.group(1), None)
-                    if editing == True:
-                        value, value_edited, status = self.get(file_index, tag.group(1), None, editing=True)
-
-                    if value != None and str(value):  # not None or ''
-                        to_be_replaced = to_be_replaced.replace(tag.group(), str(value))
-                        keep_field = True
-                        keep_overall = True
+                    if value_fallback != None and str(value_fallback):  # not None or ''
+                        to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), str(value_fallback))
+                        keep_field_edited = True
                     else:
-                        to_be_replaced = to_be_replaced.replace(tag.group(), '')
+                        to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), '')
 
-                    if editing == True:
-                        if value_edited != None:
-                            keep_overall_edited = True
-                            if status == None:
-                                status_overall = None
-                            elif status == False:
-                                if status_overall != None:
-                                    status_overall = False
-
-                        value_fallback = value_edited if value_edited != None else value
-
-                        if value_fallback != None and str(value_fallback):  # not None or ''
-                            to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), str(value_fallback))
-                            keep_field_edited = True
-                        else:
-                            to_be_replaced_edited = to_be_replaced_edited.replace(tag.group(), '')
-
-                if keep_field:
-                    result += to_be_replaced
-
-                if editing == True:
-                    if keep_field_edited:
-                        result_edited += to_be_replaced_edited
-
-            if keep_overall == False:
-                result = default
+            if keep_field:
+                result += to_be_replaced
 
             if editing == True:
-                if keep_overall_edited == False:
-                    result_edited = None
+                if keep_field_edited:
+                    result_edited += to_be_replaced_edited
+
+        if keep_overall == False:
+            result = default
+
+        if editing == True:
+            if keep_overall_edited == False:
+                result_edited = None
+
+        # compositing finished
 
         if editing == True:
             return result, result_edited, status_overall
@@ -411,23 +426,23 @@ class ExifToolGUIData:
                 return match_dict
         return {}
 
-    def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False):
+    def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         tag_r = self.resolve_condition_tag(file_index, tag)
         return self.get(file_index, tag_r, default, strict, editing)
 
-    def resolve_condition_tag(self, file_index: int, tag: str):
+    def resolve_condition_tag(self, file_index: int, tag: str) -> str:
         # condition_tag_def = self.settings.condition_tags.get(tag, None)
-        condition_tag_def = ExifToolGUIData.Get(self.settings.condition_tags, tag, None)
-        if condition_tag_def:
-            for candidate_tag, condition in condition_tag_def.items():
+        condition_tag_defs = ExifToolGUIData.Get(self.settings.condition_tags, tag, None)
+        if condition_tag_defs:
+            for candidate_tag, tag_def in condition_tag_defs.items():
 
-                to_be_tested = re.sub(
+                condition = re.sub(
                     r'<(.*?)>',
                     lambda match: self.get(file_index, match.group(1), ""),
-                    condition['to_be_tested']
+                    tag_def['condition']
                 )
 
-                match = re.match(condition['pattern'], to_be_tested)
+                match = re.match(tag_def['pattern'], condition)
                 if match:
                     # print(f"{tag}->{candidate_tag}")
                     if candidate_tag.startswith('?'):
@@ -443,18 +458,23 @@ class ExifToolGUIData:
         detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag, None)
         return (detatime_tag_def != None)
 
-    def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> datetime:
+    def normalise_datetime(self, file_index: int, tag: str, value: str = None) -> str:
+        dt_ = self.get_datetime(file_index, tag, value)
+        value_r = self.resolve_datetime(file_index, tag, dt_)
+        return value_r
+
+    def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> tuple[datetime, bool]:
         # resolve tag to normal tag or composite tag
         tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
 
         # value could be specified or got from cache
-        value = value if value else self.get(file_index, tag)
+        value = value if value != None else self.get(file_index, tag)
 
-        # if user does not specify a default timezone, use one specified by settings
-        default_timezone = default_timezone if default_timezone else self.settings.default_timezone
+        # if user does not specify a default timezone, leave it undefined here
+        # default_timezone = default_timezone if default_timezone else self.settings.default_timezone
 
         if value:
-            dt: datetime = ExifToolGUIAide.Str_to_Datetime(value)
+            dt, has_subsec = ExifToolGUIAide.Str_to_Datetime(value)
             if dt and dt.tzinfo == None:
                 detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
                 if detatime_tag_def:
@@ -462,35 +482,62 @@ class ExifToolGUIData:
                     as_utc: bool = detatime_tag_def.get('as_utc', None)
                     if as_utc:
                         dt = dt.replace(tzinfo=timezone.utc)
+                else:
+                    self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "datetime tag is not defined")
+
                 if dt.tzinfo == None:
                     # fix by user specified timezone
                     dt = dt.replace(tzinfo=ExifToolGUIAide.Str_to_Timezone(default_timezone))
+
                 if dt.tzinfo == None:
                     self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
-            return dt
+            return dt, has_subsec
 
-    def resolve_datetime(self, file_index: int, tag: str, dt: datetime, default_timezone: str) -> str:
-        if dt:
-            tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+        return None, None
 
-            if dt.tzinfo == None:
-                self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "naive datetime is passed")
-            else:
-                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
-                if detatime_tag_def:
-                    as_utc: bool = detatime_tag_def.get('as_utc', None)
-                    if as_utc:
-                        dt = dt.astimezone(timezone.utc)
-                    else:
-                        dt = dt.astimezone(ExifToolGUIAide.Str_to_Timezone(default_timezone))
+    def resolve_datetime(self, file_index: int, tag: str, dt_: tuple[datetime, bool]) -> str:
+        dt, has_subsec = dt_
 
-                    is_timezone_explicit: bool = detatime_tag_def.get('is_timezone_explicit', None)
-                    if is_timezone_explicit == False:
-                        dt = dt.replace(tzinfo=None)
+        if dt == None:
+            return None
+
+        tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
+
+        if detatime_tag_def:
+
+            if dt.tzinfo:
+                as_utc: bool = detatime_tag_def.get('as_utc', None)
+                if as_utc == True:
+                    dt = dt.astimezone(timezone.utc)
                 else:
-                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
+                    # keep the original tzinfo
+                    # dt = dt.astimezone(ExifToolGUIAide.Str_to_Timezone(default_timezone))
+                    pass
 
-            return ExifToolGUIAide.Datetime_to_Str(dt)
+                is_timezone_explicit: bool = detatime_tag_def.get('is_timezone_explicit', None)
+                if is_timezone_explicit == False:
+                    dt = dt.replace(tzinfo=None)
+
+                if as_utc != True and is_timezone_explicit == False:
+                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "Timezone info is losing")
+
+            else:
+                self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "naive datetime is passed")
+
+            support_subsec: bool = detatime_tag_def.get('support_subsec', None)
+            if support_subsec == False:
+                has_subsec = False
+                if dt.microsecond != 0:
+                    if dt.microsecond >= 500000:
+                        dt = dt.replace(second=dt.second+1)
+                    dt = dt.replace(microsecond=0)
+                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "SubSecond info is losing")
+
+        else:
+            self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
+
+        return ExifToolGUIAide.Datetime_to_Str((dt, has_subsec))
 
     '''################################################################
     IO and Log
