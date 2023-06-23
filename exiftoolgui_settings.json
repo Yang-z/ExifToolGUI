@@ -98,6 +98,16 @@
         "default": "<?Timeline> <File:FileName>.<File:FileTypeExtension>"
       }
     },
+    "set_value": {
+      "to_tags": {
+        "type": "tag",
+        "default": "Exif:OffsetTimeOriginal"
+      },
+      "value": {
+        "type": "str",
+        "default": "+08:00"
+      }
+    },
     "copy_value": {
       "from_tag": {
         "type": "tag",

@@ -27,6 +27,7 @@ class ExifToolGUIFuncs:
 
         self.funcs = {
             'rename': self.rename,
+            'set_value': self.set_value,
             'copy_value': self.copy_value,
             'shift_datetime': self.shift_datetime
         }
@@ -47,6 +48,12 @@ class ExifToolGUIFuncs:
                 format
             )
             self.data.edit(i, 'File:FileName', new_name.replace(':', ''))
+
+    def set_value(self, file_indexes: list[int], ref: int, to_tags:str, value:str) -> None:
+        list_to_tags = [tag for tag in to_tags.split(' ') if tag != ""]
+        for i in file_indexes:
+            for to_tag in list_to_tags:
+                self.data.edit(i, to_tag, value)
 
     def copy_value(self, file_indexes: list[int], ref: int, from_tag: str, to_tags: str, is_datetime: bool, default_timezone: str) -> None:
         if is_datetime:
