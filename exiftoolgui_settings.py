@@ -89,8 +89,8 @@ class ExifToolGUISettings:
         return self.raw['datetime_tags']
 
     @property
-    def condition_tags(self) -> dict[str, dict[str, dict[str, str]]]:
-        return self.raw['condition_tags']
+    def conditional_tags(self) -> dict[str, dict[str, dict[str, str]]]:
+        return self.raw['conditional_tags']
 
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:

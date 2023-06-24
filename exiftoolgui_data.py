@@ -15,7 +15,6 @@ from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
 
 
-
 class ExifToolGUIData:
     _instance: 'ExifToolGUIData' = None
 
@@ -145,12 +144,17 @@ class ExifToolGUIData:
 
         if normalise:
             if self.is_datetime(tag):
-                value = self.normalise_datetime(file_index, tag, value)
+                value_n = self.normalise_datetime(file_index, tag, value)
+                if value_n != None:
+                    value = value_n
 
         if tag.startswith('?'):
             self.edit_condition(file_index, tag, value)
         elif tag.startswith('&'):
             self.edit_composite(file_index, tag, value)
+        elif tag.startswith('('):
+            # casted tag is readonly
+            pass
         else:
             self.edit_normal(file_index, tag, value)
 
@@ -169,7 +173,7 @@ class ExifToolGUIData:
             self.edit(file_index, tag_r, value_r, save=False)
 
     def edit_condition(self, file_index: int, tag: str, value):
-        tag_r = self.resolve_condition_tag(file_index, tag)
+        tag_r = self.resolve_conditional_tag(file_index, tag)
         self.edit(file_index, tag_r, value, save=False)
 
     def save(self):
@@ -285,10 +289,15 @@ class ExifToolGUIData:
             metadata[tag_matched] = value
 
     def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        if tag != None and tag.startswith('?'):
-            return self.get_condition(file_index, tag, default, strict, editing)
-        elif tag != None and tag.startswith('&'):
+        if tag == None:
+            return default if editing != True else (default, None, None)
+
+        if tag.startswith('?'):
+            return self.get_conditional(file_index, tag, default, strict, editing)
+        elif tag.startswith('&'):
             return self.get_composite(file_index, tag, default, strict, editing)
+        elif tag.startswith('('):
+            return self.get_casted(file_index, tag, default, strict, editing)
         else:
             return self.get_normal(file_index, tag, default, strict, editing)
 
@@ -318,9 +327,7 @@ class ExifToolGUIData:
         composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
 
         if composite_tag_def == None:
-            if editing == True:
-                return default, None, None
-            return default
+            return default if editing != True else (default, None, None)
 
         # composite_tag_def != None now
 
@@ -390,10 +397,7 @@ class ExifToolGUIData:
 
         # compositing finished
 
-        if editing == True:
-            return result, result_edited, status_overall
-
-        return result
+        return result if editing != True else (result, result_edited, status_overall)
 
     def resolve_composite_value(self, tag: str, value) -> dict[str,]:
         composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
@@ -426,13 +430,13 @@ class ExifToolGUIData:
                 return match_dict
         return {}
 
-    def get_condition(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        tag_r = self.resolve_condition_tag(file_index, tag)
+    def get_conditional(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
+        tag_r = self.resolve_conditional_tag(file_index, tag)
         return self.get(file_index, tag_r, default, strict, editing)
 
-    def resolve_condition_tag(self, file_index: int, tag: str) -> str:
+    def resolve_conditional_tag(self, file_index: int, tag: str) -> str:
         # condition_tag_def = self.settings.condition_tags.get(tag, None)
-        condition_tag_defs = ExifToolGUIData.Get(self.settings.condition_tags, tag, None)
+        condition_tag_defs = ExifToolGUIData.Get(self.settings.conditional_tags, tag, None)
         if condition_tag_defs:
             for candidate_tag, tag_def in condition_tag_defs.items():
 
@@ -446,9 +450,41 @@ class ExifToolGUIData:
                 if match:
                     # print(f"{tag}->{candidate_tag}")
                     if candidate_tag.startswith('?'):
-                        return self.resolve_condition_tag(file_index, tag)
+                        return self.resolve_conditional_tag(file_index, tag)
                     else:
                         return candidate_tag
+
+    def get_casted(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
+        # tag started with '(type)'
+        pattern = r"\((?P<type>.*?)\)(?P<tag>.*)"
+        match = re.match(pattern, tag)
+        if match:
+            type_str = match.group('type')
+            tag_o = match.group('tag')
+            value_o_ = self.get(file_index, tag_o, None, strict, editing)
+
+            if editing != True:
+                value_o = value_o_
+            else:
+                value_o, value_o_edited, status = value_o_
+
+            if eval(type_str) == datetime:
+                dt_ = ExifToolGUIAide.Str_to_Datetime(str(value_o))
+                value = ExifToolGUIAide.Datetime_to_Str(dt_)
+
+                if editing == True:
+                    dt_e = ExifToolGUIAide.Str_to_Datetime(value_o_edited)
+                    value_e = ExifToolGUIAide.Datetime_to_Str(dt_e)
+
+                if value == None:
+                    value = default
+
+                return value if editing != True else (value, value_e, status)
+
+            elif eval(type_str) == timezone:
+                pass
+
+        return default if editing != True else (default, None, None)
 
     '''################################################################
     Datetime
@@ -465,7 +501,7 @@ class ExifToolGUIData:
 
     def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> tuple[datetime, bool]:
         # resolve tag to normal tag or composite tag
-        tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+        tag_r = self.resolve_conditional_tag(file_index, tag) if tag.startswith('?') else tag
 
         # value could be specified or got from cache
         value = value if value != None else self.get(file_index, tag)
@@ -487,7 +523,9 @@ class ExifToolGUIData:
 
                 if dt.tzinfo == None:
                     # fix by user specified timezone
-                    dt = dt.replace(tzinfo=ExifToolGUIAide.Str_to_Timezone(default_timezone))
+                    default_tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
+                    if default_tz:
+                        dt = dt.replace(tzinfo=default_tz)
 
                 if dt.tzinfo == None:
                     self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
@@ -495,13 +533,13 @@ class ExifToolGUIData:
 
         return None, None
 
-    def resolve_datetime(self, file_index: int, tag: str, dt_: tuple[datetime, bool]) -> str:
+    def resolve_datetime(self, file_index: int, tag: str, dt_: tuple[datetime, bool], default_timezone: str = None) -> str:
         dt, has_subsec = dt_
 
         if dt == None:
             return None
 
-        tag_r = self.resolve_condition_tag(file_index, tag) if tag.startswith('?') else tag
+        tag_r = self.resolve_conditional_tag(file_index, tag) if tag.startswith('?') else tag
         detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
 
         if detatime_tag_def:
@@ -511,9 +549,10 @@ class ExifToolGUIData:
                 if as_utc == True:
                     dt = dt.astimezone(timezone.utc)
                 else:
-                    # keep the original tzinfo
-                    # dt = dt.astimezone(ExifToolGUIAide.Str_to_Timezone(default_timezone))
-                    pass
+                    # keep the original tzinfo, unless default_timezone is valid
+                    default_tz = ExifToolGUIAide.Str_to_Timezone(default_timezone)
+                    if default_tz:
+                        dt = dt.astimezone(default_tz)
 
                 is_timezone_explicit: bool = detatime_tag_def.get('is_timezone_explicit', None)
                 if is_timezone_explicit == False:

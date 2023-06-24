@@ -70,7 +70,7 @@ class ExifToolGUIFuncs:
         for i in file_indexes:
             dt_ = self.data.get_datetime(i, from_tag, None, default_timezone=default_timezone)
             for to_tag in list_to_tags:
-                resolved: str = self.data.resolve_datetime(i, to_tag, dt_)
+                resolved: str = self.data.resolve_datetime(i, to_tag, dt_, default_timezone=default_timezone)
                 self.data.edit(i, to_tag, resolved)
 
     def shift_datetime(self, file_indexes: list[int], ref: int, tag: str, to_datetime: str, by_timedelt: str, default_timezone: str) -> None:
@@ -87,7 +87,7 @@ class ExifToolGUIFuncs:
             original_dt, has_subsec = self.data.get_datetime(i, tag, None, default_timezone=default_timezone)
             shifted_dt = original_dt + td
 
-            shifted_dt_str = self.data.resolve_datetime(i, tag, (shifted_dt, has_subsec))
+            shifted_dt_str = self.data.resolve_datetime(i, tag, (shifted_dt, has_subsec), default_timezone=default_timezone)
 
             # if shifted_dt_str != original_dt_str:
             self.data.edit(i, tag, shifted_dt_str)

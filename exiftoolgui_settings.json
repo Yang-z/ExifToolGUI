@@ -6,6 +6,7 @@
   "tags_for_group": [
     "SourceFile",
     "?Timeline",
+    "(datetime)File:FileName",
     "File:FileModifyDate",
     "&EXIF:DateTimeOriginal",
     "&EXIF:CreateDate",
@@ -175,7 +176,7 @@
       "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
     }
   },
-  "condition_tags": {
+  "conditional_tags": {
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
         "condition": "<File:FileTypeExtension>",
