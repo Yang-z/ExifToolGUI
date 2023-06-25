@@ -6,6 +6,8 @@
   "tags_for_group": [
     "SourceFile",
     "?Timeline",
+    "?ModifyDate",
+    "?GPSDateTime",
     "(datetime)File:FileName",
     "File:FileModifyDate",
     "&EXIF:DateTimeOriginal",
@@ -19,6 +21,8 @@
     "Datetime": [
       "SourceFile",
       "?Timeline",
+      "?ModifyDate",
+      "?GPSDateTime",
       "File:FileModifyDate",
       "File:FileAccessDate",
       "File:FileCreateDate",
@@ -42,7 +46,7 @@
       "QuickTime:CreateDate",
       "&QuickTime:ModifyDate",
       "QuickTime:ModifyDate",
-      "&QuickTime:GPSTimeStamp",
+      "&QuickTime:GPSDateTime",
       "QuickTime:GPSDateTime",
       "QuickTime:GPSTimeStamp"
     ],
@@ -171,7 +175,7 @@
       "format": "(<QuickTime:ModifyDate>+00:00)",
       "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
     },
-    "&QuickTime:GPSTimeStamp": {
+    "&QuickTime:GPSDateTime": {
       "format": "(<QuickTime:GPSDateTime> <QuickTime:GPSTimeStamp>+00:00)",
       "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
     }
@@ -186,14 +190,32 @@
         "condition": "<File:FileTypeExtension>",
         "pattern": "(?i)mp4"
       }
+    },
+    "?ModifyDate": {
+      "&EXIF:ModifyDate": {
+        "condition": "<File:FileTypeExtension>",
+        "pattern": "(?i)jpe?g|tiff?"
+      },
+      "&QuickTime:ModifyDate": {
+        "condition": "<File:FileTypeExtension>",
+        "pattern": "(?i)mp4"
+      }
+    },
+    "?GPSTimeStamp": {
+      "&EXIF:GPSDateTime": {
+        "condition": "<File:FileTypeExtension>",
+        "pattern": "(?i)jpe?g|tiff?"
+      },
+      "&QuickTime:GPSDateTime": {
+        "condition": "<File:FileTypeExtension>",
+        "pattern": "(?i)mp4"
+      }
     }
   },
   "datetime_tags": {
-    "?Timeline": {
-      "standard_timezone": null,
-      "is_timezone_explicit": null,
-      "support_subsec": null
-    },
+    "?Timeline": {},
+    "?ModifyDate": {},
+    "?GPSDateTime": {},
     "&EXIF:DateTimeOriginal": {
       "as_utc": false,
       "is_timezone_explicit": true,
@@ -249,7 +271,7 @@
       "is_timezone_explicit": false,
       "support_subsec": false
     },
-    "&QuickTime:GPSTimeStamp": {
+    "&QuickTime:GPSDateTime": {
       "as_utc": true,
       "is_timezone_explicit": true,
       "support_subsec": false

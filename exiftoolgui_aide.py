@@ -49,19 +49,23 @@ class ExifToolGUIAide:
                 # tz = default_tz
                 if match.group('tz'):
                     tz = ExifToolGUIAide.Str_to_Timezone(match.group('tz'))
-                dt = datetime(
-                    year=int(match.group('year')),
-                    month=int(match.group('month')) if match.group('month') else 1,
-                    day=int(match.group('day')) if match.group('day') else 1,
-                    hour=int(match.group('hour')) if match.group('hour') else 0,
-                    minute=int(match.group('minute')) if match.group('minute') else 0,
-                    second=int(match.group('second')) if match.group('second') else 0,
-                    microsecond=int(float(match.group('second_fractional'))*1000000) if match.group('second_fractional') else 0,
-                    # microsecond is the highest precision of python datetime,
-                    # so it wiil lost precision when dealing with some metadate with higher precision,
-                    # such as windows file system timestamp, wich is 100ns(0.1ms).
-                    tzinfo=tz,
-                )
+
+                try:
+                    dt = datetime(
+                        year=int(match.group('year')),
+                        month=int(match.group('month')) if match.group('month') else 1,
+                        day=int(match.group('day')) if match.group('day') else 1,
+                        hour=int(match.group('hour')) if match.group('hour') else 0,
+                        minute=int(match.group('minute')) if match.group('minute') else 0,
+                        second=int(match.group('second')) if match.group('second') else 0,
+                        microsecond=int(float(match.group('second_fractional'))*1000000) if match.group('second_fractional') else 0,
+                        # microsecond is the highest precision of python datetime,
+                        # so it wiil lost precision when dealing with some metadate with higher precision,
+                        # such as windows file system timestamp, wich is 100ns(0.1ms).
+                        tzinfo=tz,
+                    )
+                except Exception as e:
+                    print(e)
 
                 # tell the function Datetime_to_Str() whether to print subsec
                 has_subsec = bool(match.group('second_fractional'))
@@ -83,7 +87,7 @@ class ExifToolGUIAide:
         if dt == None:
             try:
                 dt = datetime.fromisoformat(datetime_str)
-            except ValueError as e:
+            except Exception as e:  # ValueError
                 print(e)
 
         return dt, has_subsec
@@ -233,4 +237,7 @@ if __name__ == "__main__":
 
     print(ExifToolGUIAide.Str_to_Datetime(None))
     print(ExifToolGUIAide.Datetime_to_Str((None, None)))
+
+    print(ExifToolGUIAide.Str_to_Datetime(''))
+    print(ExifToolGUIAide.Datetime_to_Str((datetime.min.replace(tzinfo=timezone.utc), None)))
     pass

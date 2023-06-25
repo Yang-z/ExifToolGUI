@@ -455,12 +455,9 @@ class ExifToolGUIData:
                         return candidate_tag
 
     def get_casted(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        # tag started with '(type)'
-        pattern = r"\((?P<type>.*?)\)(?P<tag>.*)"
-        match = re.match(pattern, tag)
-        if match:
-            type_str = match.group('type')
-            tag_o = match.group('tag')
+        type_evaled, tag_o = self.resolve_casted_tag(tag)
+
+        if type_evaled != None and tag_o != None:
             value_o_ = self.get(file_index, tag_o, None, strict, editing)
 
             if editing != True:
@@ -468,7 +465,7 @@ class ExifToolGUIData:
             else:
                 value_o, value_o_edited, status = value_o_
 
-            if eval(type_str) == datetime:
+            if type_evaled == datetime:
                 dt_ = ExifToolGUIAide.Str_to_Datetime(str(value_o))
                 value = ExifToolGUIAide.Datetime_to_Str(dt_)
 
@@ -481,16 +478,35 @@ class ExifToolGUIData:
 
                 return value if editing != True else (value, value_e, status)
 
-            elif eval(type_str) == timezone:
+            elif type_evaled == timezone:
                 pass
 
         return default if editing != True else (default, None, None)
+
+    def resolve_casted_tag(self, tag: str) -> tuple[Any, str]:
+        # tag started with '(type)'
+        pattern = r"\((?P<type>.*?)\)(?P<tag>.*)"
+        match = re.match(pattern, tag)
+        if match:
+            type_str = match.group('type')
+            tag_o = match.group('tag')
+
+            type_evaled = eval(type_str)
+
+            return type_evaled, tag_o
+
+        return None, None
 
     '''################################################################
     Datetime
     ################################################################'''
 
-    def is_datetime(self, tag) -> bool:
+    def is_datetime(self, tag: str) -> bool:
+        if tag.startswith('('):
+            type_evaled, tag_o = self.resolve_casted_tag(tag)
+            return type_evaled == datetime
+            # return True if tag.startswith(f"({datetime.__name__})") else False
+
         detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag, None)
         return (detatime_tag_def != None)
 
@@ -632,5 +648,9 @@ if __name__ == "__main__":
     data.reload()
     value = data.get(0, "?Timeline", editing=True)
     print(value)
+
+    print(data.is_datetime('?ModifyDate'))
+
+    print(data.is_datetime('(datetime)test'))
 
     pass
