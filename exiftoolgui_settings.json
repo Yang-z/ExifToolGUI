@@ -148,6 +148,12 @@
         "type": "timezone",
         "default": "local"
       }
+    },
+    "reverse_order": {
+      "tag": {
+        "type": "tag",
+        "default": "?Timeline"
+      }
     }
   },
   "composite_tags": {

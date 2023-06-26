@@ -50,8 +50,8 @@ class ExifToolGUIData:
             unsaved.append({})
             edited = self.cache_edited[file_index]
             for tag_edited, value_edited in edited.items():
-                value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_edited, '')
-                value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_edited, None)
+                value_saved = ExifToolGUIData.Get(self.cache[file_index], tag_edited, default='')
+                value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag_edited)
                 if value_edited != str(value_saved) and value_edited != value_failed:
                     unsaved[file_index][tag_edited] = value_edited
         return unsaved
@@ -174,7 +174,8 @@ class ExifToolGUIData:
 
     def edit_condition(self, file_index: int, tag: str, value):
         tag_r = self.resolve_conditional_tag(file_index, tag)
-        self.edit(file_index, tag_r, value, save=False)
+        if tag_r:
+            self.edit(file_index, tag_r, value, save=False)
 
     def save(self):
         unsaved = self.cache_unsaved
@@ -189,11 +190,11 @@ class ExifToolGUIData:
 
             # check whether file name is changed
             file_new = file
-            directory_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:Directory', None)
-            filename_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:FileName', None)
+            directory_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:Directory')
+            filename_new: str = ExifToolGUIData.Get(unsaved[file_index], 'File:FileName')
             if filename_new != None or directory_new != None:
-                directory_old = ExifToolGUIData.Get(self.cache[file_index], 'File:Directory', None)
-                filename_old = ExifToolGUIData.Get(self.cache[file_index], 'File:FileName', None)
+                directory_old = ExifToolGUIData.Get(self.cache[file_index], 'File:Directory')
+                filename_old = ExifToolGUIData.Get(self.cache[file_index], 'File:FileName')
                 file_new = os.path.join(
                     directory_new if directory_new != None else directory_old,
                     filename_new if filename_new != None else filename_old
@@ -302,11 +303,11 @@ class ExifToolGUIData:
             return self.get_normal(file_index, tag, default, strict, editing)
 
     def get_normal(self, file_index: int, tag: str, default=None,  strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        value = ExifToolGUIData.Get(self.cache[file_index], tag, None, strict)
+        value = ExifToolGUIData.Get(self.cache[file_index], tag, strict=strict)
 
         if editing == True:
             status: bool = None
-            value_edited = ExifToolGUIData.Get(self.cache_edited[file_index], tag, None)
+            value_edited = ExifToolGUIData.Get(self.cache_edited[file_index], tag)
             if value_edited != None:
                 if value == None:
                     if value_edited == '':
@@ -315,16 +316,15 @@ class ExifToolGUIData:
                     status = True
 
                 if status != True:
-                    value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag, None)
+                    value_failed = ExifToolGUIData.Get(self.cache_failed[file_index], tag)
                     if value_edited == value_failed:
                         status = False
 
-            return value if value != None else default, value_edited, status
-
-        return value if value != None else default
+        value = value if value != None else default
+        return value if editing != True else (value, value_edited, status)
 
     def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
+        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag)
 
         if composite_tag_def == None:
             return default if editing != True else (default, None, None)
@@ -336,7 +336,6 @@ class ExifToolGUIData:
 
         if editing == True:
             result_edited = ""
-
             keep_overall_edited = False
             status_overall = True
 
@@ -353,11 +352,13 @@ class ExifToolGUIData:
             for tag in tags:
 
                 if editing != True:
-                    value = self.get(file_index, tag.group(1), None)
+                    value = self.get(file_index, tag.group(1))
                 else:  # editing == True:
-                    value, value_edited, status = self.get(file_index, tag.group(1), None, editing=True)
+                    value, value_edited, status = self.get(file_index, tag.group(1), editing=True)
 
-                if value != None and str(value):  # not None or ''
+                # not None or ''
+                # empty string dont't seem to exist, because exiftool deletes tag with the value of empty string
+                if value != None and str(value):
                     to_be_replaced = to_be_replaced.replace(tag.group(), str(value))
                     keep_field = True
                     keep_overall = True
@@ -400,7 +401,7 @@ class ExifToolGUIData:
         return result if editing != True else (result, result_edited, status_overall)
 
     def resolve_composite_value(self, tag: str, value) -> dict[str,]:
-        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag, None)
+        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag)
         if composite_tag_def:
             pattern = composite_tag_def['pattern']
 
@@ -432,17 +433,17 @@ class ExifToolGUIData:
 
     def get_conditional(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         tag_r = self.resolve_conditional_tag(file_index, tag)
-        return self.get(file_index, tag_r, default, strict, editing)
+        return self.get(file_index, tag_r, default=default, strict=strict, editing=editing)
 
     def resolve_conditional_tag(self, file_index: int, tag: str) -> str:
         # condition_tag_def = self.settings.condition_tags.get(tag, None)
-        condition_tag_defs = ExifToolGUIData.Get(self.settings.conditional_tags, tag, None)
+        condition_tag_defs = ExifToolGUIData.Get(self.settings.conditional_tags, tag)
         if condition_tag_defs:
             for candidate_tag, tag_def in condition_tag_defs.items():
 
                 condition = re.sub(
                     r'<(.*?)>',
-                    lambda match: self.get(file_index, match.group(1), ""),
+                    lambda match: self.get(file_index, match.group(1), default=""),
                     tag_def['condition']
                 )
 
@@ -458,7 +459,7 @@ class ExifToolGUIData:
         type_evaled, tag_o = self.resolve_casted_tag(tag)
 
         if type_evaled != None and tag_o != None:
-            value_o_ = self.get(file_index, tag_o, None, strict, editing)
+            value_o_ = self.get(file_index, tag_o, strict=strict, editing=editing)
 
             if editing != True:
                 value_o = value_o_
@@ -507,7 +508,7 @@ class ExifToolGUIData:
             return type_evaled == datetime
             # return True if tag.startswith(f"({datetime.__name__})") else False
 
-        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag, None)
+        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag)
         return (detatime_tag_def != None)
 
     def normalise_datetime(self, file_index: int, tag: str, value: str = None) -> str:
@@ -528,7 +529,7 @@ class ExifToolGUIData:
         if value:
             dt, has_subsec = ExifToolGUIAide.Str_to_Datetime(value)
             if dt and dt.tzinfo == None:
-                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
+                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r)
                 if detatime_tag_def:
                     # some tags may implicit specify timezone info as UTC, i.e. QuickTime:CreateDate
                     as_utc: bool = detatime_tag_def.get('as_utc', None)
@@ -556,7 +557,7 @@ class ExifToolGUIData:
             return None
 
         tag_r = self.resolve_conditional_tag(file_index, tag) if tag.startswith('?') else tag
-        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r, None)
+        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r)
 
         if detatime_tag_def:
 

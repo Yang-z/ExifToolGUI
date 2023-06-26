@@ -154,7 +154,7 @@ class ExifToolGUI():
         for file_index in range(0, file_count):
             for column in range(0, tags_count):
                 tag = tags[column]
-                value = self.data.get(file_index, tag, '')
+                value = self.data.get(file_index, tag, default='')
                 item = QTableWidgetItem(str(value))
 
                 item.setData(Qt.UserRole, {"file_index": file_index, "tag": tag})  # mark
@@ -266,7 +266,7 @@ class ExifToolGUI():
         else:
             metadata_temp: dict[str,] = {}
             for tag in self.settings.tags_for_single[title]:
-                value = self.data.get(file_index, tag, '')
+                value = self.data.get(file_index, tag, default='')
                 metadata_temp[tag] = value
 
         self.reload_tree_for_single(tree, metadata_temp)

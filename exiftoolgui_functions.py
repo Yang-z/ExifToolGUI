@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
@@ -29,7 +29,8 @@ class ExifToolGUIFuncs:
             'rename': self.rename,
             'set_value': self.set_value,
             'copy_value': self.copy_value,
-            'shift_datetime': self.shift_datetime
+            'shift_datetime': self.shift_datetime,
+            'reverse_order': self.reverse_order
         }
 
     def rename(self, file_indexes: list[int], ref: int, format: str) -> None:
@@ -49,7 +50,7 @@ class ExifToolGUIFuncs:
             )
             self.data.edit(i, 'File:FileName', new_name.replace(':', ''))
 
-    def set_value(self, file_indexes: list[int], ref: int, to_tags:str, value:str) -> None:
+    def set_value(self, file_indexes: list[int], ref: int, to_tags: str, value: str) -> None:
         list_to_tags = [tag for tag in to_tags.split(' ') if tag != ""]
         for i in file_indexes:
             for to_tag in list_to_tags:
@@ -92,10 +93,36 @@ class ExifToolGUIFuncs:
             # if shifted_dt_str != original_dt_str:
             self.data.edit(i, tag, shifted_dt_str)
 
-    # def sort_datetime(self, file_indexes: list[int], tag: str):
-    #     file_indexes.sort(key=lambda i: ExifToolGUIAide.Str_to_Datetime(self.data.get(i, tag)))
-    #     # file_indexes.sort(key=lambda i:self.data.get(i, tag))
-    #     print(file_indexes)
+    def reverse_order(self, file_indexes: list[int], ref: int, tag: str) -> None:
+
+        is_datetime: bool = self.data.is_datetime(tag)
+
+        def sort_value(file_index: int):
+            value = self.data.get(file_index, tag, default='')
+            if is_datetime:
+                dt, _ = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
+                return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
+            else:
+                return value
+
+        file_indexes.sort(key=lambda file_index: sort_value(file_index))
+
+        length = len(file_indexes)
+        for order in range(length):
+            front = order
+            back = length - 1 - order
+            if front < back:
+                front_file_i = file_indexes[front]
+                back_file_i = file_indexes[back]
+
+                front_value = self.data.get(front_file_i, tag, default='')
+                back_value = self.data.get(back_file_i, tag, default='')
+
+                self.data.edit(front_file_i, tag, back_value)
+                self.data.edit(back_file_i, tag, front_value)
+
+            else:
+                break
 
 
 if __name__ == "__main__":
