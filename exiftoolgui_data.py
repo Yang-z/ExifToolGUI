@@ -164,8 +164,35 @@ class ExifToolGUIData:
     def edit_normal(self, file_index: int, tag: str, value):
         metadata = self.cache_edited[file_index]
         tag_n = ExifToolGUIData.Normalise_Tag(tag)
+        if tag_n == ExifToolGUIData.Normalise_Tag('File:FileName'):
+            if not value:
+                return
+            value = self.anti_duplicate_file_name(file_index, value)
         metadata[tag_n] = value
         self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
+
+    def anti_duplicate_file_name(self, file_index: int, value: str, suffix='_') -> str:
+        tag_n = ExifToolGUIData.Normalise_Tag('File:FileName')
+        file_name, ext = os.path.splitext(value)
+
+        i = 0
+        duplicated: bool = True
+        while duplicated:
+            for file_index_ in range(len(self.cache_edited)):
+                if file_index_ == file_index:
+                    duplicated = False
+                    continue
+
+                metadata = self.cache_edited[file_index_]
+                if value.lower() == metadata.get(tag_n, '').lower():
+                    duplicated = True
+                    i += 1
+                    value = file_name + suffix + str(i) + ext
+                    break
+                else:
+                    duplicated = False
+
+        return value
 
     def edit_composite(self, file_index: int, tag: str, value):
         resolved = self.resolve_composite_value(tag, value)

@@ -38,7 +38,7 @@ class ExifToolGUIFuncs:
         def fill_value(match, file_index: int):
             tag = match.group(1)
             value = self.data.get(file_index, tag)
-            if tag == 'File:FileName':
+            if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag('File:FileName'):
                 value, _ = os.path.splitext(value)
             return value
 
