@@ -543,7 +543,7 @@ class ExifToolGUIData:
         value_r = self.resolve_datetime(file_index, tag, dt_)
         return value_r
 
-    def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> tuple[datetime, bool]:
+    def get_datetime(self, file_index: int, tag: str, value: str = None, default_timezone: str = None) -> tuple[datetime, int]:
         # resolve tag to normal tag or composite tag
         tag_r = self.resolve_conditional_tag(file_index, tag) if tag.startswith('?') else tag
 
@@ -554,7 +554,7 @@ class ExifToolGUIData:
         # default_timezone = default_timezone if default_timezone else self.settings.default_timezone
 
         if value:
-            dt, has_subsec = ExifToolGUIAide.Str_to_Datetime(value)
+            dt, len_subsec = ExifToolGUIAide.Str_to_Datetime(value)
             if dt and dt.tzinfo == None:
                 detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r)
                 if detatime_tag_def:
@@ -573,12 +573,12 @@ class ExifToolGUIData:
 
                 if dt.tzinfo == None:
                     self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
-            return dt, has_subsec
+            return dt, len_subsec
 
         return None, None
 
-    def resolve_datetime(self, file_index: int, tag: str, dt_: tuple[datetime, bool], default_timezone: str = None) -> str:
-        dt, has_subsec = dt_
+    def resolve_datetime(self, file_index: int, tag: str, dt_: tuple[datetime, int], default_timezone: str = None) -> str:
+        dt, len_subsec = dt_
 
         if dt == None:
             return None
@@ -610,17 +610,14 @@ class ExifToolGUIData:
 
             support_subsec: bool = detatime_tag_def.get('support_subsec', None)
             if support_subsec == False:
-                has_subsec = False
+                len_subsec = 0
                 if dt.microsecond != 0:
-                    if dt.microsecond >= 500000:
-                        dt = dt.replace(second=dt.second+1)
-                    dt = dt.replace(microsecond=0)
                     self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "SubSecond info is losing")
 
         else:
             self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
 
-        return ExifToolGUIAide.Datetime_to_Str((dt, has_subsec))
+        return ExifToolGUIAide.Datetime_to_Str((dt, len_subsec))
 
     '''################################################################
     IO and Log

@@ -17,13 +17,13 @@ class ExifToolGUIAide:
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str) -> tuple[datetime, bool]:
-        if datetime_str == None:
-            return None, None
-
-        tz = None
+    def Str_to_Datetime(datetime_str: str) -> tuple[datetime, int]:
         dt = None
-        has_subsec: bool = None
+        len_subsec: int = None
+        tz = None
+
+        if not datetime_str:
+            return dt, len_subsec
 
         # try common
         if dt == None:
@@ -68,67 +68,58 @@ class ExifToolGUIAide:
                     print(e)
 
                 # tell the function Datetime_to_Str() whether to print subsec
-                has_subsec = bool(match.group('second_fractional'))
+                len_subsec = 0 if not bool(match.group('second_fractional')) else (len(match.group('second_fractional'))-1)
 
         # try timestamp
         if dt == None:
-            pattern = r'\d{10,13}'
+            pattern = r'\d{10,16}'
             match = re.search(pattern, datetime_str)
             if match:
                 timestamp_str = match.group(0)
-                l = len(timestamp_str)
+                len_ts = len(timestamp_str)
                 timestamp = int(timestamp_str)
-                if l > 10:
-                    timestamp /= pow(10, l-10)
+                if len_ts > 10:
+                    timestamp /= pow(10, len_ts-10)
                 dt = datetime.fromtimestamp(timestamp, timezone.utc)
-                has_subsec = True if l > 10 else False
+                len_subsec = len_ts - 10
 
         # try iso
         if dt == None:
             try:
                 dt = datetime.fromisoformat(datetime_str)
+                len_subsec = len(str(dt.microsecond / 1000000.0)[2:])
             except Exception as e:  # ValueError
                 print(e)
 
-        return dt, has_subsec
+        return dt, len_subsec
 
     @staticmethod
-    def Datetime_to_Str(dt_: tuple[datetime, bool]) -> str:
-        dt, has_subsec = dt_
+    def Datetime_to_Str(dt_: tuple[datetime, int]) -> str:
+        dt, len_subsec = dt_
 
         if dt == None:
             return None
 
-        dt_s = None
-
-        # dt_s = str(dt).replace('-', ':')
-        # dt_s = dt.strftime('%Y:%m:%d %H:%M:%S.%f%z')
-        # dt_s = "{:%Y:%m:%d %H:%M:%S.%f%z}".format(dt)
-
-        # dt_s = dt.strftime('%Y:%m:%d %H:%M:%S.%f') + str(dt.tzinfo).replace('UTC', '')
-
-        # dt_s = str(dt.replace(tzinfo=None)).replace('-', ':') # will not print microsecond if its value is 0
-        # if dt.tzinfo:
-        #     dt_s += str(dt.tzinfo).replace('UTC', '')
-
-        # subsec = '{:06d}'.format(dt.microsecond)
-        # while len(subsec) > 2 and subsec[-1] == '0':
-        #     subsec = subsec[:-1]
-
-        # dt_s = '{}.{}{}'.format(
-        #     dt.strftime('%Y:%m:%d %H:%M:%S'),
-        #     subsec,
-        #     str(dt.tzinfo).replace('UTC', '') if dt.tzinfo else ''
-        # )
+        if len_subsec == 0:
+            if dt.microsecond >= 500000:
+                dt = dt.replace(second=dt.second+1)
+            dt = dt.replace(microsecond=0)
+            # SubSecond info lost
 
         dt_s = dt.strftime('%Y:%m:%d %H:%M:%S')
-        if dt.microsecond != 0 or has_subsec == True:
+        if dt.microsecond != 0 or len_subsec > 0:
+
             subsec = '{:06d}'.format(dt.microsecond)
-            while len(subsec) > 2 and subsec[-1] == '0':
+            while len(subsec) > len_subsec and subsec[-1] == '0':
                 subsec = subsec[:-1]
-            dt_s += '.'+subsec
+            dt_s += '.' + subsec
+
+            # formatter = "{:." + str(len_subsec) + "f}"
+            # subsec = formatter.format(dt.microsecond / 1000000.0)
+            # subsec = subsec[1:]
+            # dt_s += subsec
+
         if dt.tzinfo:
-            # dt_s += str(dt.tzinfo).replace('UTC', '')
             dt_s += ExifToolGUIAide.Timezone_to_Str(dt.tzinfo)
 
         return dt_s
@@ -217,14 +208,14 @@ class ExifToolGUIAide:
 
 if __name__ == "__main__":
     # date_string = "2023:05:17 15:54:30.00+00:00:00.0000009"
-    # # date_string = "161475902111111111111111"
-    # print(date_string)
+    date_string = "1687806635123"
+    print(date_string)
 
-    # dt_ = ExifToolGUIAide.Str_to_Datetime(date_string)
-    # print(dt_[0], dt_[1])
+    dt_ = ExifToolGUIAide.Str_to_Datetime(date_string)
+    print(dt_[0], dt_[1])
 
-    # dt_s = ExifToolGUIAide.Datetime_to_Str(dt_)
-    # print(dt_s)
+    dt_s = ExifToolGUIAide.Datetime_to_Str(dt_)
+    print(dt_s)
 
     # td_str = "-1.5"
     # print(ExifToolGUIAide.Str_to_Timedelt(td_str))
@@ -235,9 +226,10 @@ if __name__ == "__main__":
 
     # print(ExifToolGUIAide.Str_to_Timezone('local'))
 
-    print(ExifToolGUIAide.Str_to_Datetime(None))
-    print(ExifToolGUIAide.Datetime_to_Str((None, None)))
+    # print(ExifToolGUIAide.Str_to_Datetime(None))
+    # print(ExifToolGUIAide.Datetime_to_Str((None, None)))
 
-    print(ExifToolGUIAide.Str_to_Datetime(''))
-    print(ExifToolGUIAide.Datetime_to_Str((datetime.min.replace(tzinfo=timezone.utc), None)))
+    # print(ExifToolGUIAide.Str_to_Datetime(''))
+    # print(ExifToolGUIAide.Datetime_to_Str((datetime.min.replace(tzinfo=timezone.utc), None)))
+
     pass
