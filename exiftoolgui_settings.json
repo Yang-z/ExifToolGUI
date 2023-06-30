@@ -116,11 +116,11 @@
     "copy_value": {
       "from_tag": {
         "type": "tag",
-        "default": "File:FileModifyDate"
+        "default": "(datetime)File:FileName"
       },
       "to_tags": {
         "type": "tag",
-        "default": "?Timeline"
+        "default": "?Timeline ?ModifyDate"
       },
       "is_datetime": {
         "type": "bool",
@@ -190,7 +190,7 @@
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?"
+        "pattern": "(?i)jpe?g|tiff?|png"
       },
       "&QuickTime:CreateDate": {
         "condition": "<File:FileTypeExtension>",
@@ -200,7 +200,7 @@
     "?ModifyDate": {
       "&EXIF:ModifyDate": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?"
+        "pattern": "(?i)jpe?g|tiff?|png"
       },
       "&QuickTime:ModifyDate": {
         "condition": "<File:FileTypeExtension>",
@@ -210,7 +210,7 @@
     "?GPSTimeStamp": {
       "&EXIF:GPSDateTime": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?"
+        "pattern": "(?i)jpe?g|tiff?|png"
       },
       "&QuickTime:GPSDateTime": {
         "condition": "<File:FileTypeExtension>",

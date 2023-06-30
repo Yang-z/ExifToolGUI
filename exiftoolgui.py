@@ -133,8 +133,9 @@ class ExifToolGUI():
         list_dirs: QListWidget = self.list_dirs
         list_dirs.clear()
         list_dirs.addItems(self.settings.dirs)
-        self.data.reload()
+        self.data.update()
         self.reload_table_for_group()
+        self.edit_table_for_group()
 
     def reload_table_for_group(self):
         table: QTableWidget = self.table_for_group
@@ -641,43 +642,33 @@ class ExifToolGUI():
     ################################################################'''
 
     def get_preview(self, file_path: str, size: int, load_embedded: bool = False) -> QPixmap:
-        if not hasattr(self, "pixel_ratio"):
-            pixel_ratio = self.app.primaryScreen().physicalDotsPerInch()/96.0
 
-        pixmap: QPixmap = None
+        if not hasattr(self, "cache_preview"):
+            self.cache_preview: dict[str, QPixmap] = {}
 
-        if load_embedded:
-            b: bytes = self.data.load_thumbnail(file_path)
-            if b:
-                pixmap = QPixmap()
-                pixmap.loadFromData(b)
+        pixmap: QPixmap = self.cache_preview.get(file_path, None)
+        if pixmap:
+            return pixmap
+
+        # embedded
+        if pixmap == None:
+            if load_embedded:
+                b: bytes = self.data.load_thumbnail(file_path)
+                if b:
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(b)
 
         # image
         if pixmap == None:
+            QImageReader.setAllocationLimit(0)
             image_reader = QImageReader(file_path)
+            image_reader.setAutoTransform(True)
             if image_reader.canRead():
                 image: QImage = image_reader.read()
                 pixmap = QPixmap.fromImage(image)
 
         # video
         if pixmap == None:
-            ''' failed: always return empty image
-            # video_extensions = ['.mp4', '.avi', '.mov', '.mkv']
-            # if os.path.splitext(file_path)[1].lower() in video_extensions:
-            #     media_player = QMediaPlayer()
-            #     media_player.setSource(QUrl.fromLocalFile(file_path))
-
-            #     video_widget = QVideoWidget()
-            #     media_player.setVideoOutput(video_widget)
-
-            #     video_widget.show()
-            #     media_player.play()
-            #     media_player.pause()
-            #     frame = video_widget.grab().toImage()
-            #     media_player.stop()
-            #     pixmap = QPixmap.fromImage(frame)
-            '''
-
             import cv2
             cap = cv2.VideoCapture(file_path)
             if cap.isOpened():
@@ -693,10 +684,15 @@ class ExifToolGUI():
             icon: QIcon = QFileIconProvider().icon(QFileInfo(file_path))
             pixmap = icon.pixmap(icon.availableSizes()[0])
 
+        if not hasattr(self, "pixel_ratio"):
+            self.pixel_ratio = self.app.primaryScreen().physicalDotsPerInch()/96.0
+
         if pixmap:
             precision = 2.0
-            pixmap.setDevicePixelRatio(pixel_ratio * precision)
+            pixmap.setDevicePixelRatio(self.pixel_ratio * precision)
             pixmap = pixmap.scaledToHeight(size * precision)
+
+            self.cache_preview[file_path] = pixmap
             return pixmap
 
 

@@ -65,28 +65,55 @@ class ExifToolGUIData:
         self.cache_edited.clear()
         self.cache_failed.clear()
 
-        self.cache += self.load(self.settings.files)
+        for file in self.settings.files:
+            self.cache.append(self.load(file))
 
         for file_index in range(0, len(self.cache)):
             self.cache_edited.append({})
             self.cache_failed.append({})
 
-    def load(self, files: list[str], tags: list[str] = None) -> list[dict[str, ]]:
-        results: list[dict[str,]] = []
+    def update(self):
+        _cache: list[dict[str, ]] = []
+        _cache_edited: list[dict[str, ]] = []
+        _cache_failed: list[dict[str, ]] = []
 
-        for file in files:
-            result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
-            results.append(result)
+        _files = self.settings.files
+        for _file_index in range(len(_files)):
+            _file = _files[_file_index]
 
-            # handle non-unicode
-            self.fix_non_unicode_filename(file, result)
+            # find exist file cache
+            exist_file_index: int = None
+            for file_index in range(len(self.cache)):
+                file = self.cache[file_index]['SourceFile']
+                if os.path.samefile(file, _file):
+                    exist_file_index = file_index
+                    break
 
-            # handle ExifTool:Warning
-            for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
-                self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
-                result.pop(tag_w)
+            if exist_file_index != None:
+                _cache.append(self.cache[exist_file_index])
+                _cache_edited.append(self.cache_edited[exist_file_index])
+                _cache_failed.append(self.cache_failed[exist_file_index])
+            else:
+                _cache.append(self.load(_file))
+                _cache_edited.append({})
+                _cache_failed.append({})
 
-        return results
+        self.cache = _cache
+        self.cache_edited = _cache_edited
+        self.cache_failed = _cache_failed
+
+    def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
+        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
+
+        # handle non-unicode
+        self.fix_non_unicode_filename(file, result)
+
+        # handle ExifTool:Warning
+        for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
+            self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
+            result.pop(tag_w)
+
+        return result
 
     def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
         '''
@@ -232,9 +259,9 @@ class ExifToolGUIData:
 
             # get tags for checking
             result = self.load(
-                [file_new],
+                file_new,
                 list(unsaved[file_index].keys()) + ['ExifTool:Warning'],
-            )[0]
+            )
 
             # update source_file
             if file_new != file:

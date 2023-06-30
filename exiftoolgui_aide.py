@@ -32,7 +32,7 @@ class ExifToolGUIAide:
                 r"(?:[-:]?(?P<month>\d{2}))?"
                 r"(?:[-:]?(?P<day>\d{2}))?"
 
-                r"(?:[ ]"
+                r"(?:[ _]"
                 r"(?P<hour>\d{2})"
                 r"(?:[-:]?(?P<minute>\d{2}))"
                 r"(?:[-:]?(?P<second>\d{2}))?"
