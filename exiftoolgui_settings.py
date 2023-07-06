@@ -48,6 +48,10 @@ class ExifToolGUISettings:
                 break
         return all_files
 
+    '''################################################################
+    exiftool_options
+    ################################################################'''
+
     @property
     def exiftool_options(self) -> dict[str, str]:
         return self.raw['exiftool_options']
@@ -55,6 +59,10 @@ class ExifToolGUISettings:
     @property
     def exiftool_params(self) -> list:
         return [k.replace(' ', '\n') for k, v in self.exiftool_options.items() if v == 'forced' or v == 'on']
+
+    '''################################################################
+    exiftoolgui_options
+    ################################################################'''
 
     @property
     def auto_save(self) -> bool:
@@ -77,8 +85,20 @@ class ExifToolGUISettings:
         return self.raw['exiftoolgui_options']['preview_size']
 
     @property
+    def preview_precision(self) -> int:
+        return self.raw['exiftoolgui_options']['preview_precision']
+
+    '''################################################################
+    functions
+    ################################################################'''
+
+    @property
     def functions(self) -> dict[str, dict[str, dict[str,]]]:
         return self.raw['functions']
+
+    '''################################################################
+    tag_defs
+    ################################################################'''
 
     @property
     def composite_tags(self) -> dict[str, dict[str,]]:
@@ -91,6 +111,10 @@ class ExifToolGUISettings:
     @property
     def conditional_tags(self) -> dict[str, dict[str, dict[str, str]]]:
         return self.raw['conditional_tags']
+
+    '''################################################################
+    IO
+    ################################################################'''
 
     def load(self) -> dict:
         with open(self.source_file, encoding='utf-8') as f:

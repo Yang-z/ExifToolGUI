@@ -94,7 +94,8 @@
     "max_group_level": 1,
     "simplify_group_level": true,
     "default_timezone": "local",
-    "preview_size": 64
+    "preview_size": 64,
+    "preview_precision": 1.5
   },
   "functions": {
     "rename": {

@@ -163,7 +163,7 @@ class ExifToolGUI():
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    pic = self.get_preview(value, self.settings.preview_size)
+                    pic = self.get_preview(value, self.settings.preview_size, self.settings.preview_precision)
                     if pic:
                         item.setData(Qt.DecorationRole, pic)
 
@@ -641,7 +641,7 @@ class ExifToolGUI():
     Additional
     ################################################################'''
 
-    def get_preview(self, file_path: str, size: int, load_embedded: bool = False) -> QPixmap:
+    def get_preview(self, file_path: str, size: int, precision: float = 1.0, load_embedded: bool = False) -> QPixmap:
 
         if not hasattr(self, "cache_preview"):
             self.cache_preview: dict[str, QPixmap] = {}
@@ -688,7 +688,7 @@ class ExifToolGUI():
             self.pixel_ratio = self.app.primaryScreen().physicalDotsPerInch()/96.0
 
         if pixmap:
-            precision = 2.0
+            precision = precision if precision >= 1.0 else 1.0
             pixmap.setDevicePixelRatio(self.pixel_ratio * precision)
             pixmap = pixmap.scaledToHeight(size * precision)
 
