@@ -1,5 +1,5 @@
 # ExifToolGUI
-ExifToolGUI is a a graphical user interface for ExifTool.
+ExifToolGUI is a graphical user interface for ExifTool.
 
 
 ## UI
@@ -34,7 +34,7 @@ are always retruned by JSON, so no need to specified short output format (-s).
 
 - GUI normally does not restrict values inputted. That means user can try to modify any tag by any value, but whether the edited value can be saved back to file depends on the ExifTool side. Excptions are made for GUI defined Virtual Tags and Formatting Tags. Inputted values for thoese tags could be modified (normalised) or rejected by GUI according to their definitions. See below:
 
-    - For a GUI defined Formatting Tag, the inputted value would be normalised during editing. e.g. GUI would try to format the value of a defined datetime tag according to it's definition. When formatting fails, if the formatting tag is a normal tag, original user inputted value keeps, while if it's a virtual tag, this editing will be abandoned.
+    - For a GUI defined Formatting Tag, the inputted value would be normalised during editing. e.g. GUI would try to format the value of a defined datetime tag according to it's definition. If formatting fails, original user inputted value keeps.
 
     - For a GUI defined Virtual Tags, GUI would try to interpret the inputted value first, and if it's invaild, this editing will be abandoned.
 
