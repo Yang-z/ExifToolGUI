@@ -89,17 +89,17 @@ class ExifToolGUIData:
     Load
     ################################################################'''
 
-    def reload(self) -> None:
-        self.cache.clear()
-        self.cache_edited.clear()
-        self.cache_failed.clear()
+    # def reload(self) -> None:
+    #     self.cache.clear()
+    #     self.cache_edited.clear()
+    #     self.cache_failed.clear()
 
-        for file in self.settings.files:
-            self.cache.append(self.load(file))
+    #     for file in self.settings.files:
+    #         self.cache.append(self.load(file))
 
-        for file_index in range(0, len(self.cache)):
-            self.cache_edited.append({})
-            self.cache_failed.append({})
+    #     for file_index in range(0, len(self.cache)):
+    #         self.cache_edited.append({})
+    #         self.cache_failed.append({})
 
     def update(self):
         _cache: list[dict[str, ]] = []
@@ -132,10 +132,10 @@ class ExifToolGUIData:
         self.cache_failed = _cache_failed
 
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
-        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
+        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_unicode=True)
 
         # handle non-unicode filenames
-        self.fix_non_unicode_filename(file, result)
+        # self.fix_non_unicode_filename(file, result)
 
         # handle ExifTool:Warning
         for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
@@ -655,7 +655,7 @@ class ExifToolGUIData:
     IO and Log
     ################################################################'''
 
-    def read_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
+    def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_unicode: bool = False) -> dict[str, ]:
         result: dict[str,] = {'SourceFile': file}
 
         sourcefile_encoded, _, _ = self.handle_tags_of_filename(file, tags)
@@ -665,44 +665,44 @@ class ExifToolGUIData:
         try:
             result.update(self.exiftool.get_tags(sourcefile_encoded, tags, params)[0])
         except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Read:{process_name}', e.stderr)
-        except UnicodeEncodeError as e:
-            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Read:{process_name}', str(e))
-        except Exception as e:
-            self.log(file, f'ExifToolGUI:Error:Unknow:Read:{process_name}', str(e))
+            self.log(file, f'ExifTool:Error:{type(e).__name__}:Read:{process_name}', e.stderr)
+        except Exception as e:  # UnicodeEncodeError
+            self.log(file, f'ExifToolGUI:Error:{type(e).__name__}:Read:{process_name}', str(e))
+
+        # fix non-unicode filenames
+        if fix_non_unicode:
+            self.fix_non_unicode_filenames(file, result)
 
         return result
 
-    def write_tags(self, file: str, tags: dict[str, Any], params: list[str], process_name) -> bool:
+    def write_tags(self, file: str, tags: dict[str, Any], params: list[str], process_name) -> None:
 
-        sourcefile_encoded, tags_no_filename, tags_of_filename = self.handle_tags_of_filename(file, tags)
-        if sourcefile_encoded == None:
+        def _write_tags(file_b: bytes, tags: dict[str, Any], params: list[str], process_name, exiftool: ExifToolHelper) -> bool:
+            if file_b == None:
+                return False
+            if len(tags) == 0:
+                return True
+
+            encoding = exiftool.encoding
+            try:
+                r: str = exiftool.set_tags(file_b, tags, params)
+                if r:
+                    self.log(file, f'ExifTool:Info:Write_{encoding}:{process_name}', r)
+                return True
+            except ExifToolExecuteError as e:
+                self.log(file, f'ExifTool:Error:{type(e).__name__}:Write_{encoding}:{process_name}', e.stderr)
+            except Exception as e:  # UnicodeEncodeError UnicodeDecodeError
+                self.log(file, f'ExifToolGUI:Error:{type(e).__name__}:Write_{encoding}:{process_name}', str(e))
             return False
 
-        try:
-            if tags_no_filename:
-                r: str = self.exiftool.set_tags(sourcefile_encoded, tags_no_filename, params)
-                if r:
-                    self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+        sourcefile_encoded, tags_no_filename, tags_of_filename = self.handle_tags_of_filename(file, tags)
 
-            if tags_of_filename:
-                # here "exiftool_2" whose encoding is local codepage is applied
-                r: str = self.exiftool_2.set_tags(sourcefile_encoded, tags_of_filename, params)
-                if r:
-                    self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+        _write_tags(sourcefile_encoded, tags_no_filename, params, process_name, self.exiftool)
 
-            return True
+        # here "exiftool_2" whose encoding is local codepage is applied
+        _write_tags(sourcefile_encoded, tags_of_filename, params, process_name, self.exiftool_2)
 
-        except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:ExifToolExecuteError:Write:{process_name}', e.stderr)
-        except UnicodeEncodeError as e:
-            self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Write:{process_name}', str(e))
-        except Exception as e:
-            self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
-
-        return False
-
-    def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
+    def fix_non_unicode_filenames(self, file: str, metadata: dict[str, ]) -> None:
         '''
         On Windows, if the system codepage is not UTF-8, filename related values will be garbled.
         Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 

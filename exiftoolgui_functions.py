@@ -126,5 +126,5 @@ class ExifToolGUIFuncs:
 
 
 if __name__ == "__main__":
-    ExifToolGUIFuncs.Instance.data.reload()
+    ExifToolGUIFuncs.Instance.data.update()
     ExifToolGUIFuncs.Instance.sort_datetime([1, 2, 0], 'File:FileModifyDate')

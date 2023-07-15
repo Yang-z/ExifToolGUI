@@ -74,7 +74,13 @@
       "QuickTime:GPSSpeedRef"
     ],
     "Custom": [
-      "SourceFile"
+      "SourceFile",
+      "Exif:Make",
+      "Exif:Model",
+      "Exif:LensMake",
+      "Exif:LensModel",
+      "Exif:FileSource",
+      "Exif:UserComment"
     ]
   },
   "exiftool_options": {
