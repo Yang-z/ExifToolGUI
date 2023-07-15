@@ -6,18 +6,33 @@ from datetime import datetime, timezone, timedelta
 
 class ExifToolGUIAide:
 
+    Local_Codepage:str = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
+
+    @staticmethod
+    def Encode(value: str, encoding:str = None) -> bytes:
+        b: bytes = None
+        encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
+        try:
+            b = value.encode(encoding=encoding)
+        except UnicodeEncodeError as e:
+            print(e)
+        except Exception as e:
+            print(e)
+        
+        return b
+
+
     @staticmethod
     def Base64_to_Str(base64_str: str, encoding=None) -> str:
         if base64_str == None or not base64_str.startswith('base64:'):
             return None
         b: bytes = base64.b64decode(base64_str[7:])
-        if encoding == None:
-            encoding = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
+        encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
         fixed: str = b.decode(encoding)
         return fixed
 
     @staticmethod
-    def Str_to_Datetime(datetime_str: str) -> tuple[datetime, int]:
+    def Str_to_Datetime(datetime_str: str, try_iso: bool = False) -> tuple[datetime, int]:
         dt = None
         len_subsec: int = None
         tz = None
@@ -84,7 +99,7 @@ class ExifToolGUIAide:
                 len_subsec = len_ts - 10
 
         # try iso
-        if dt == None:
+        if dt == None and try_iso:
             try:
                 dt = datetime.fromisoformat(datetime_str)
                 len_subsec = len(str(dt.microsecond / 1000000.0)[2:])
@@ -208,14 +223,14 @@ class ExifToolGUIAide:
 
 if __name__ == "__main__":
     # date_string = "2023:05:17 15:54:30.00+00:00:00.0000009"
-    date_string = "1687806635123"
-    print(date_string)
+    # date_string = "1687806635123"
+    # print(date_string)
 
-    dt_ = ExifToolGUIAide.Str_to_Datetime(date_string)
-    print(dt_[0], dt_[1])
+    # dt_ = ExifToolGUIAide.Str_to_Datetime(date_string)
+    # print(dt_[0], dt_[1])
 
-    dt_s = ExifToolGUIAide.Datetime_to_Str(dt_)
-    print(dt_s)
+    # dt_s = ExifToolGUIAide.Datetime_to_Str(dt_)
+    # print(dt_s)
 
     # td_str = "-1.5"
     # print(ExifToolGUIAide.Str_to_Timedelt(td_str))
@@ -231,5 +246,8 @@ if __name__ == "__main__":
 
     # print(ExifToolGUIAide.Str_to_Datetime(''))
     # print(ExifToolGUIAide.Datetime_to_Str((datetime.min.replace(tzinfo=timezone.utc), None)))
+
+    encoding = locale.getpreferredencoding(False)
+    print(encoding)
 
     pass

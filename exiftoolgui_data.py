@@ -1,7 +1,6 @@
 from typing import Union, Any
 
 import os
-import locale
 import base64
 import re
 from datetime import datetime, timezone
@@ -26,7 +25,36 @@ class ExifToolGUIData:
         return cls._instance
 
     def __init__(self) -> None:
-        self.exiftool = ExifToolHelper(common_args=None)
+        self.exiftool = ExifToolHelper(common_args=None)  # for utf-8
+        self.exiftool_2 = ExifToolHelper(common_args=None)  # for local codepage
+
+        '''
+        ExifTool does not support non 'utf-8' value writting:
+            -"Warning: Malformed UTF-8 character(s)".
+        And json extracting requires vaild 'utf-8' value.
+            [https://exiftool.org/forum/index.php?topic=13473]
+        It means invaild 'utf-8' value could not be obtained via json.
+
+        So, we are almostly forced onto 'utf-8'.
+        Here, we use 'utf-8' by default. 
+        '''
+        self.exiftool.encoding = 'utf-8'
+
+        '''
+        However, filename related tags (i.e. SourceFile, File:FileName, File:Directory) should be always encoded by local codepage.
+            -SourceFile is encoded by local codepage before being passed to pyExifTool. 
+            -When write File:FileName or File:Directory, "exiftool_2" with the encoding of local codepage is applied.
+            -When reading filename related tags via json, the ExifTool option of "-b" is used to keep the original local codepage encoded values.
+        See IO functions for more details.
+
+        Besides filename related tags, the only chance to be compatible with local codepage might be
+        reading local codepage encoded values without json. (to be tested)
+
+        *Only windows users encounter problems of 'utf-8' and local codepage.
+        Other OS always use 'utf-8'.
+        '''
+        self.exiftool_2.encoding = ExifToolGUIAide.Local_Codepage
+
         '''
         note:
         There is a bug in CPython 3.8+ on Windows where terminate() does not work during __del__()
@@ -36,6 +64,7 @@ class ExifToolGUIData:
         (Please make sure to create instances of the class and run the main loop in the main thread of the program, to ensure that 'atexit' works properly.)
         '''
         atexit.register(self.exiftool.terminate)
+        atexit.register(self.exiftool_2.terminate)
 
         self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
 
@@ -105,7 +134,7 @@ class ExifToolGUIData:
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
         result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load')
 
-        # handle non-unicode
+        # handle non-unicode filenames
         self.fix_non_unicode_filename(file, result)
 
         # handle ExifTool:Warning
@@ -114,30 +143,6 @@ class ExifToolGUIData:
             result.pop(tag_w)
 
         return result
-
-    def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
-        '''
-        # On Windows, if the system code page is not UTF-8, filename related values will be garbled.
-        # Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
-        # See: https://exiftool.org/forum/index.php?topic=13473
-        # Here is a temporary method to fix this problem.
-        # Notice: 
-        # '-b' should be specified, and in this way ExifTool will code the non-utf8 values with base64,
-        # and by decoding base64 string, we get the raw local-encoding-coded bytes, and a correct 
-        # decoding process according to local encoding could be done.
-        # Otherwise, python can't get the raw local-encoding-coded values from json, and what json
-        # provides is a UTF-8 'validated' but irreversibly damaged value.
-        '''
-        # if local system encoding is not utf-8
-        if locale.getpreferredencoding(False) != 'utf-8':
-            tags_b: list = ['File:FileName', 'File:Directory']
-            result_b: dict[str, ] = self.read_tags(file, tags_b, self.settings.exiftool_params + ['-b'], 'fix_unicode_filename')
-            if result_b:
-                for tag_b in ['SourceFile'] + tags_b:
-                    maybe_base64 = ExifToolGUIData.Get(result_b, tag_b)
-                    fixed = ExifToolGUIAide.Base64_to_Str(maybe_base64)
-                    if fixed:
-                        ExifToolGUIData.Set(metadata, tag_b, fixed)
 
     def load_thumbnail(self, file_index: int) -> bytes:
         file = self.cache[file_index]['SourceFile'] if (type(file_index) == int) else file_index
@@ -652,29 +657,117 @@ class ExifToolGUIData:
 
     def read_tags(self, file: str, tags: list[str], params: list[str], process_name) -> dict[str, ]:
         result: dict[str,] = {'SourceFile': file}
+
+        sourcefile_encoded, _, _ = self.handle_tags_of_filename(file, tags)
+        if sourcefile_encoded == None:
+            return result
+
         try:
-            result.update(self.exiftool.get_tags(file, tags, params)[0])
+            result.update(self.exiftool.get_tags(sourcefile_encoded, tags, params)[0])
         except ExifToolExecuteError as e:
             self.log(file, f'ExifTool:Error:ExifToolExecuteError:Read:{process_name}', e.stderr)
         except UnicodeEncodeError as e:
             self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Read:{process_name}', str(e))
         except Exception as e:
             self.log(file, f'ExifToolGUI:Error:Unknow:Read:{process_name}', str(e))
+
         return result
 
-    def write_tags(self, file: str, tags: list[str], params: list[str], process_name) -> bool:
+    def write_tags(self, file: str, tags: dict[str, Any], params: list[str], process_name) -> bool:
+
+        sourcefile_encoded, tags_no_filename, tags_of_filename = self.handle_tags_of_filename(file, tags)
+        if sourcefile_encoded == None:
+            return False
+
         try:
-            r: str = self.exiftool.set_tags(file, tags, params)
-            if r:
-                self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+            if tags_no_filename:
+                r: str = self.exiftool.set_tags(sourcefile_encoded, tags_no_filename, params)
+                if r:
+                    self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+
+            if tags_of_filename:
+                # here "exiftool_2" whose encoding is local codepage is applied
+                r: str = self.exiftool_2.set_tags(sourcefile_encoded, tags_of_filename, params)
+                if r:
+                    self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+
             return True
+
         except ExifToolExecuteError as e:
             self.log(file, f'ExifTool:Error:ExifToolExecuteError:Write:{process_name}', e.stderr)
         except UnicodeEncodeError as e:
             self.log(file, f'ExifToolGUI:Error:UnicodeEncodeError:Write:{process_name}', str(e))
         except Exception as e:
             self.log(file, f'ExifToolGUI:Error:Unknow:Write:{process_name}', str(e))
+
         return False
+
+    def fix_non_unicode_filename(self, file: str, metadata: dict[str, ]) -> None:
+        '''
+        On Windows, if the system codepage is not UTF-8, filename related values will be garbled.
+        Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
+            -See: https://exiftool.org/forum/index.php?topic=13473
+        Here is a temporary method to fix this problem.
+        Notice: 
+            ExifTool option of '-b' should be specified, and in this way ExifTool will encode the non-utf8 
+            values with base64. Then by decoding base64 string, the raw local codepage encoded bytes could 
+            be obtained, and a correct decoding process according to local codepage could be done.
+            Otherwise, python can't get the raw local codepage encoded values from json, and what json
+            provides is a UTF-8 'validated' but irreversibly damaged value. Actually, invaild utf-8 bytes 
+            will be replaced by \x3F\x00\x3F\x00... in json, and the original value is lost permanently.
+        '''
+
+        # if local system encoding is not utf-8
+        if ExifToolGUIAide.Local_Codepage != 'utf-8':
+            tags_b: list = ['File:FileName', 'File:Directory']
+            result_b: dict[str, ] = self.read_tags(file, tags_b, self.settings.exiftool_params + ['-b'], 'fix_unicode_filename')
+            if result_b:
+                for tag_b in ['SourceFile'] + tags_b:
+                    maybe_base64 = ExifToolGUIData.Get(result_b, tag_b)
+                    fixed = ExifToolGUIAide.Base64_to_Str(maybe_base64)
+                    if fixed:
+                        ExifToolGUIData.Set(metadata, tag_b, fixed)
+
+    def handle_tags_of_filename(self, file: str, tags: dict[str, Any]):
+
+        # sourcefile path should be always local codepage encoded
+        sourcefile_encoded: bytes = ExifToolGUIAide.Encode(file, encoding=ExifToolGUIAide.Local_Codepage)
+
+        tags_should_be_local: list = ['File:FileName', 'File:Directory']
+
+        if isinstance(tags, dict):
+            tags_no_filename: dict = {}
+            tags_of_filename: dict = {}
+
+            for tag, value in tags.items():
+                of_filename = False
+                for tag_should_be_local in tags_should_be_local:
+                    if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag(tag_should_be_local):
+                        tags_of_filename[tag] = value
+                        of_filename = True
+                        break
+                if of_filename != True:
+                    tags_no_filename[tag] = value
+
+        # elif isinstance(tags, list):
+        #     tags_no_filename: list = []
+        #     tags_of_filename: list = []
+
+        #     for tag in tags:
+        #         of_filename = False
+        #         for tag_should_be_local in tags_should_be_local:
+        #             if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag(tag_should_be_local):
+        #                 tags_of_filename.append(tag)
+        #                 of_filename = True
+        #                 break
+        #         if of_filename != True:
+        #             tags_no_filename.append(tag)
+
+        else:
+            tags_no_filename = tags
+            tags_of_filename = None
+
+        return sourcefile_encoded, tags_no_filename, tags_of_filename
 
     def log(self, source_file: str, cat: str, message: str):
         message = str(message).strip()
@@ -697,7 +790,7 @@ if __name__ == "__main__":
     # print(result)
 
     data: ExifToolGUIData = ExifToolGUIData.Instance
-    data.reload()
+    data.update()
     value = data.get(0, "?Timeline", editing=True)
     print(value)
 
