@@ -1,6 +1,4 @@
 import sys
-import os
-
 from datetime import datetime, timezone
 
 # from PySide6 import QtCore

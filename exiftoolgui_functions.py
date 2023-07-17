@@ -1,6 +1,8 @@
-import os
 import re
+
 from datetime import datetime, timezone, timedelta
+
+import os
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings

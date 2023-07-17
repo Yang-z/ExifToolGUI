@@ -1,6 +1,7 @@
-import os
-import json
 from collections import OrderedDict
+import json
+
+import os
 
 
 class ExifToolGUISettings:

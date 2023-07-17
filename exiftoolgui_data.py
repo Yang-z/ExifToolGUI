@@ -1,10 +1,11 @@
 from typing import Union, Any
 
-import os
 import base64
 import re
+
 from datetime import datetime, timezone
 
+import os
 import atexit
 
 # import exiftool
@@ -33,8 +34,8 @@ class ExifToolGUIData:
         File path should be aways encoded by local codepage. Otherwise cmd would not identify the file.
 
         For filename-related tags (i.e. File:FileName, File:Directory):
-            - When reading filename-related tags via json, the ExifTool option of "-b" is used 
-              to keep the original local codepage encoded values.
+            - When reading filename-related tags via json, the ExifTool option of "-b" could
+              be used to keep the original local codepage encoded values.
             - When writting filename related tags , local codepage should be always applied.
 
         For non-filename-related tags:
@@ -52,7 +53,6 @@ class ExifToolGUIData:
             [https://exiftool.org/forum/index.php?topic=13473]
             [https://github.com/sylikc/pyexiftool/issues/70]
         '''
-
         self.exiftool = ExifToolHelper(common_args=None)  # for local codepage
         self.exiftool.encoding = ExifToolGUIAide.Local_Codepage
 
@@ -140,7 +140,7 @@ class ExifToolGUIData:
         self.cache_failed = _cache_failed
 
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
-        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_unicode=True)
+        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_utf8=True)
 
         # handle ExifTool:Warning
         for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
@@ -659,7 +659,7 @@ class ExifToolGUIData:
     '''################################################################
     IO and Log
     ################################################################'''
-    Filename_Related_Tags = ['File:FileName', 'File:Directory']
+    Filename_Related_Tags: list[str] = ['File:FileName', 'File:Directory']
 
     @staticmethod
     def Is_Filename_Tag(tag: str) -> bool:
@@ -669,7 +669,7 @@ class ExifToolGUIData:
                 return True
         return False
 
-    def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_unicode: bool = False) -> dict[str, ]:
+    def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_utf8: bool = False) -> dict[str, ]:
         result: dict[str,] = {'SourceFile': file}
 
         # file path should always be encoded by local codepage
@@ -686,9 +686,8 @@ class ExifToolGUIData:
         except Exception as e:  # UnicodeEncodeError
             self.log(file, f'ExifToolGUI:Error:{type(e).__name__}:Read:{process_name}', str(e))
 
-        # fix non-ASCII filenames
-        if fix_non_unicode:
-            self.fix_non_unicode_filenames(file, result)
+        if fix_non_utf8:
+            self.fix_non_utf8_filenames(file, result)
 
         return result
 
@@ -709,8 +708,8 @@ class ExifToolGUIData:
             else:
                 encoding = 'utf-8'
             # pre-encode before passing to pyExifTool
-            b: bytes = ExifToolGUIAide.Encode(f"-{tag}={value}", encoding=encoding)
-            exec_params.append(b)
+            tag_b: bytes = ExifToolGUIAide.Encode(f"-{tag}={value}", encoding=encoding)
+            exec_params.append(tag_b)
 
         exec_params.append(filepath_encoded)
 
@@ -728,7 +727,7 @@ class ExifToolGUIData:
 
         return False
 
-    def fix_non_unicode_filenames(self, file: str, metadata: dict[str, ]) -> None:
+    def fix_non_utf8_filenames(self, file: str, metadata: dict[str, ]) -> None:
         '''
         On Windows, if the system codepage is not UTF-8, filename related values will be garbled.
         Exiftool doesn't recode these tags from local encoding to UTF-8 before passing them to json. 
@@ -740,15 +739,13 @@ class ExifToolGUIData:
             be obtained, and a correct decoding process according to local codepage could be done.
             Otherwise, python can't get the raw local codepage encoded values from json, and what json
             provides is a UTF-8 'validated' but irreversibly damaged value. Actually, invaild utf-8 bytes 
-            will be replaced by \x3F\x00\x3F\x00... in json, and the original value is lost permanently.
+            will be replaced by "\x3F\x00\x3F\x00..." in json, and the original value is lost permanently.
         '''
-
-        # if local system encoding is not utf-8
         if ExifToolGUIAide.Local_Codepage != 'utf-8':
             result_b: dict[str, ] = self.read_tags(
                 file, ExifToolGUIData.Filename_Related_Tags,
                 self.settings.exiftool_params + ['-b'],
-                'fix_unicode_filename'
+                'fix_non_utf8_filenames'
             )
             if result_b:
                 for tag_b in ['SourceFile'] + ExifToolGUIData.Filename_Related_Tags:

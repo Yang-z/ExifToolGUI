@@ -1,33 +1,34 @@
-import locale
 import base64
 import re
+
 from datetime import datetime, timezone, timedelta
+
+import locale
 
 
 class ExifToolGUIAide:
 
-    Local_Codepage:str = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
+    Local_Codepage: str = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
 
     @staticmethod
-    def Encode(value: str, encoding:str = None) -> bytes:
+    def Encode(value: str, encoding: str = Local_Codepage) -> bytes:
         b: bytes = None
-        encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
+        # encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
         try:
             b = value.encode(encoding=encoding)
         except UnicodeEncodeError as e:
             print(e)
         except Exception as e:
             print(e)
-        
+
         return b
 
-
     @staticmethod
-    def Base64_to_Str(base64_str: str, encoding=None) -> str:
-        if base64_str == None or not base64_str.startswith('base64:'):
+    def Base64_to_Str(base64_str: str, encoding: str = Local_Codepage) -> str:
+        if not isinstance(base64_str, str) or not base64_str.startswith('base64:'):
             return None
         b: bytes = base64.b64decode(base64_str[7:])
-        encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
+        # encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
         fixed: str = b.decode(encoding)
         return fixed
 
