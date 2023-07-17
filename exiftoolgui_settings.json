@@ -14,7 +14,8 @@
     "&EXIF:CreateDate",
     "&EXIF:ModifyDate",
     "&QuickTime:CreateDate",
-    "&QuickTime:ModifyDate"
+    "&QuickTime:ModifyDate",
+    "Exif:UserComment"
   ],
   "tags_for_single": {
     "all": [],
@@ -87,8 +88,9 @@
     "-j": "auto",
     "-s": "auto",
     "-b": "auto",
+    "-charset\nfilename=utf8": "forced",
     "-G:0:1:2:3:4:5:6:7": "forced",
-    "-sep ;": "forced",
+    "-sep\n;": "forced",
     "-n": "on",
     "-a": "on",
     "-U": "on",

@@ -8,28 +8,28 @@ import locale
 
 class ExifToolGUIAide:
 
-    Local_Codepage: str = locale.getpreferredencoding(False)  # 'cp936' same as 'gb2312'?
+    Local_Codepage: str = locale.getpreferredencoding(False)
 
     @staticmethod
-    def Encode(value: str, encoding: str = Local_Codepage) -> bytes:
-        b: bytes = None
-        # encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
-        try:
-            b = value.encode(encoding=encoding)
-        except UnicodeEncodeError as e:
-            print(e)
-        except Exception as e:
-            print(e)
-
-        return b
-
-    @staticmethod
-    def Base64_to_Str(base64_str: str, encoding: str = Local_Codepage) -> str:
+    def Base64_to_Str(base64_str: str, alt_encodings: list[str] = []) -> str:
+        fixed: str = None
         if not isinstance(base64_str, str) or not base64_str.startswith('base64:'):
-            return None
+            return fixed
+
         b: bytes = base64.b64decode(base64_str[7:])
-        # encoding = encoding if encoding != None else ExifToolGUIAide.Local_Codepage
-        fixed: str = b.decode(encoding)
+
+        encodings = ['utf-8', ExifToolGUIAide.Local_Codepage]
+        encodings.extend(alt_encodings)
+
+        for encoding in encodings:
+            if encoding == None:
+                continue
+            try:
+                fixed: str = b.decode(encoding)
+                return fixed
+            except Exception as e:
+                print(f"Base64_to_Str:{encoding}: " + str(e))
+
         return fixed
 
     @staticmethod
@@ -250,5 +250,6 @@ if __name__ == "__main__":
 
     encoding = locale.getpreferredencoding(False)
     print(encoding)
+    # 'cp936' same as 'gb2312'?
 
     pass
