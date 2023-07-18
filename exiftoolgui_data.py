@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import os
 import atexit
+import locale
 
 # import exiftool
 from exiftool.helper import ExifToolHelper, ExifToolExecuteError
@@ -48,7 +49,7 @@ class ExifToolGUIData:
             - In terms of writting, ExifTool seems unspportable for non-utf-8 values,
               and the fellowing warning will be thrown if try:
                 "Warning: Malformed UTF-8 character(s)"
-              ExifTool do have a '-charset' option, which might be help, but not all 
+              ExifTool do have a '-charset' option, which might be helpful, but not all 
               local codepages are supported.
 
 
@@ -360,8 +361,8 @@ class ExifToolGUIData:
         return next(iter(item.values()), default)
 
     @staticmethod
-    def Set(metadata: dict[str, ], tag: str, value) -> None:
-        item = ExifToolGUIData.Get_Item(metadata, tag, findall=False)
+    def Set(metadata: dict[str, ], tag: str, value, strict: bool = False) -> None:
+        item = ExifToolGUIData.Get_Item(metadata, tag, strict=strict, findall=False)
         tag_matched = next(iter(item.keys()), None)
         if tag_matched != None:
             metadata[tag_matched] = value
@@ -705,9 +706,6 @@ class ExifToolGUIData:
         return False
 
     def fix_non_utf8_values(self, file: str, metadata: dict[str, str], encodings: list[str] = []) -> None:
-        # It's under development, and may causes problems.
-        return
-
         '''
         If non-utf8 values exist, Exiftool will not recode these values from local encoding 
         to UTF-8 before passing them to json. That could causes non-utf8 values to be garbled.
@@ -727,25 +725,80 @@ class ExifToolGUIData:
         Here is a way to fix this problem to keep the compatibility of reading non-utf-8 values 
         existing in metadata.
         '''
-        garbled: dict = {}
+        garbled: dict[str, str] = {}
         for tag, value in metadata.items():
             if isinstance(value, str) and '??' in value:  # how about non str value?
                 garbled[tag] = value
 
-        result_f: dict[str, ] = self.read_tags(
+        if len(garbled) <= 0:
+            return
+
+        '''
+        (a zip file with 608 duplicated tags of '-ZIP:ZipFileName' causes reading with no response.)
+        (duplicated tags of '-ZIP:ZipFileName' look like: -ZIP:ZIP:Other:Doc2:Copy1:ZIP::ID-15:ZipFileName)
+
+        normalise tags to avoid duplicated tags making cmd_params too huge.
+        cmd_params with too huge size could cause reading fdout unresponsive.
+        os.read(fd, block_size) freezed at the very first block.
+
+        (should also let reading funcion split a single call into batches?)
+        '''
+        tags_garbled_n: list = []
+        for tag in garbled.keys():
+            tag_n = ExifToolGUIData.Normalise_Tag(tag)
+            if tag_n not in tags_garbled_n:
+                tags_garbled_n.append(tag_n)
+
+        result_b: dict[str, ] = self.read_tags(
             file,
-            garbled.keys(),
+            tags_garbled_n,
             self.settings.exiftool_params + ['-b'],
             'fix_non_utf8_values'
         )
 
-        if result_f:
-            for tag_garbled, value_garbled in garbled.items():
-                maybe_base64 = ExifToolGUIData.Get(result_f, tag_garbled, strict=True)
-                fixed = ExifToolGUIAide.Base64_to_Str(maybe_base64, encodings)
-                if fixed and fixed != value_garbled:
-                    ExifToolGUIData.Set(metadata, tag_garbled, fixed)
-                    self.log(file, f'ExifToolGUI:Info', f"non-utf-8 value found: {ExifToolGUIData.Normalise_Tag(tag_garbled)}")
+        if not result_b:
+            return
+
+        # encoding candidates to decode the original value
+        encodings: list[str] = [locale.getpreferredencoding(False)] + encodings
+        for tag_garbled, value_garbled in garbled.items():
+
+            maybe_base64: str = ExifToolGUIData.Get(result_b, tag_garbled, strict=True)
+            if not isinstance(maybe_base64, str) or not maybe_base64.startswith('base64:'):
+                continue
+
+            # test if "\x3F\x3F..." ("??...") is as the normal chars
+            value_b: bytes = base64.b64decode(maybe_base64[7:])
+            value_garbled_b: bytes = value_garbled.encode(encoding='utf-8')
+            if value_b == value_garbled_b:
+                # vaild utf-8 value contians "??" as normal chars.
+                print('"\x3F\x3F..." ("??...") is as normal chars')
+                continue
+
+            # guess the right encoding
+            fixed: str = None
+            for encoding in encodings:
+                if encoding == None:
+                    continue
+                try:
+                    fixed = value_b.decode(encoding)
+                    break
+                except Exception as e:
+                    # print(f"Base64_to_Str:Error:{type(e).__name__}:{encoding}: " + str(e))
+                    pass
+
+            if fixed == None:
+                # keep base64 string instead
+                fixed = maybe_base64
+
+            if fixed == value_garbled:
+                # Is it possible?
+                # fixed value is the same as the value garbled by utf-8!
+                print("fixed value is the same as value garbled by utf-8!")
+                pass
+            else:
+                ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
+                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"{encoding} value found: {tag_garbled}")
 
     def log(self, source_file: str, cat: str, message: str):
         message = str(message).strip()
