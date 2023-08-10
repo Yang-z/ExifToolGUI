@@ -790,15 +790,16 @@ class ExifToolGUIData:
             if fixed == None:
                 # keep base64 string instead
                 fixed = maybe_base64
+                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"unknown encoding: {tag_garbled}")
+            else:
+                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"{encoding} value found: {tag_garbled}")
 
             if fixed == value_garbled:
                 # Is it possible?
                 # fixed value is the same as the value garbled by utf-8!
                 print("fixed value is the same as value garbled by utf-8!")
-                pass
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
-                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"{encoding} value found: {tag_garbled}")
 
     def log(self, source_file: str, cat: str, message: str):
         message = str(message).strip()
