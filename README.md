@@ -122,14 +122,14 @@ Some functions are defined to batch editing tags:
 - default:
     ```
     "-j": "auto",
+    "-a": "auto",
     "-s": "auto",
     "-b": "auto",
+    "-charset filename=utf8": "forced",
     "-G:0:1:2:3:4:5:6:7": "forced",
     "-sep ;": "forced",
     "-n": "on",
-    "-a": "on",
     "-U": "on",
     "-P": "on",
     "-overwrite_original": "on"
     ```
-- GUI for ExifTool options is under development

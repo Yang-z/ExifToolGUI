@@ -87,12 +87,12 @@
   "exiftool_options": {
     "-j": "auto",
     "-s": "auto",
+    "-a": "auto",
     "-b": "auto",
-    "-charset\nfilename=utf8": "forced",
+    "-charset filename=utf8": "forced",
     "-G:0:1:2:3:4:5:6:7": "forced",
-    "-sep\n;": "forced",
+    "-sep ;": "forced",
     "-n": "on",
-    "-a": "on",
     "-U": "on",
     "-P": "on",
     "-overwrite_original": "on"

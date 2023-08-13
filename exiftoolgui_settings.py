@@ -57,6 +57,11 @@ class ExifToolGUISettings:
     def exiftool_options(self) -> dict[str, str]:
         return self.raw['exiftool_options']
 
+    @exiftool_options.setter
+    def exiftool_options(self, value):
+        self.raw['exiftool_options'] = value
+        self.save()
+
     @property
     def exiftool_params(self) -> list:
         return [k.replace(' ', '\n') for k, v in self.exiftool_options.items() if v == 'forced' or v == 'on']

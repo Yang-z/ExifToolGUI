@@ -13,19 +13,23 @@ from PySide6.QtGui import *  # QImage, QPixmap
 
 from exiftoolgui_settings import ExifToolGUISettings
 from exiftoolgui_data import ExifToolGUIData
+from exiftool_options import ExifToolOptions
 
 
-class ExifToolGUI():
+class ExifToolGUI(QObject):
     def __init__(self) -> None:
+        super().__init__()
+
         self.app: QApplication = QApplication(sys.argv)
         # apply_stylesheet(self.app, theme='dark_teal.xml')
 
         self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
         self.data: ExifToolGUIData = ExifToolGUIData.Instance
+        self.exiftool_option_defs = ExifToolOptions.Instance
 
         self.main_window: QMainWindow = self.load_main_window()
 
-        # # After nay value in a table is modified, the ref would dead
+        # # After any value in a table is modified, the ref would dead
         # # "RuntimeError: Internal C++ object (PySide6.QtWidgets.QTableWidget) already deleted."
         # self.table_for_group:QTableWidget = self.main_window.findChild(QTableWidget, 'table_for_group')
         # ...
@@ -37,7 +41,7 @@ class ExifToolGUI():
 
         self.load_tabs_for_single()
         self.load_comboBox_functions()
-        self.load_layout_exiftool_options()
+        self.init_exiftool_options()
 
         self.add_event_handlers()
 
@@ -73,10 +77,6 @@ class ExifToolGUI():
         return self.main_window.findChild(QPushButton, 'button_save')
 
     @property
-    def layout_exiftool_options(self) -> QGridLayout:
-        return self.main_window.findChild(QGridLayout, 'gridLayout_exiftoolOptions')
-
-    @property
     def comboBox_functions(self) -> QComboBox:
         return self.main_window.findChild(QComboBox, 'comboBox_functions')
 
@@ -87,6 +87,36 @@ class ExifToolGUI():
     @property
     def pushButton_functions_exec(self) -> QPushButton:
         return self.main_window.findChild(QPushButton, 'pushButton_functions_exec')
+
+    # memu_exiftool
+
+    @property
+    def exiftool_options_display(self) -> QGridLayout:
+        return self.main_window.findChild(QGridLayout, 'exiftool_options_display')
+
+    @property
+    def exiftool_options_editor(self) -> QGridLayout:
+        return self.main_window.findChild(QGridLayout, 'exiftool_options_editor')
+
+    @property
+    def exiftool_options_editor_state(self) -> QCheckBox:
+        return self.main_window.findChild(QCheckBox, 'exiftool_options_editor_state')
+
+    @property
+    def exiftool_options_editor_input(self) -> QComboBox:
+        return self.main_window.findChild(QComboBox, 'exiftool_options_editor_input')
+
+    @property
+    def exiftool_options_editor_add(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'exiftool_options_editor_add')
+
+    @property
+    def exiftool_options_editor_delete(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'exiftool_options_editor_delete')
+
+    @property
+    def exiftool_options_editor_description(self) -> QTextBrowser:
+        return self.main_window.findChild(QTextBrowser, 'exiftool_options_editor_description')
 
     def load_main_window(self) -> QMainWindow:
         ui_file = QFile(self.settings.assets_ui)
@@ -388,37 +418,192 @@ class ExifToolGUI():
                 r = 0
                 c += 1
 
-    def load_layout_exiftool_options(self):
+    # memu_exiftool
+
+    def init_exiftool_options(self):
+        self.init_exiftool_options_display()
+        self.init_exiftool_options_editor()
+
+    def init_exiftool_options_display(self):
+
+        layout: QGridLayout = self.exiftool_options_display
+        ExifToolGUI.clear_layout(layout)
+
+        option_list: list[QToolButton] = []
+        layout.setProperty('userdata', {0: option_list})  # userdata (shallow copy)
+
         options = self.settings.exiftool_options
-        layout: QGridLayout = self.layout_exiftool_options
+        for option, state in options.items():
+            butt = self.init_exiftool_option(option, state)
+            option_list.append(butt)
+            self.update_exiftool_option(butt)
+
+        self.relocate_exiftool_options()
+
+    def init_exiftool_options_editor(self):
+
+        self.exiftool_options_editor.setProperty("userdata", {0: None})  # userdata
+
+        input: QComboBox = self.exiftool_options_editor_input
+
+        input.clear()
+        option_defs = self.exiftool_option_defs.get_options_non_tag_name()
+        for hint, description in option_defs.items():
+            input.addItem(
+                f"{hint}\n {description}\n________________",
+                # f"<html><b>{hint}</b><br>{description}</html>",
+                (hint, description)
+            )
+
+        self.clear_exiftool_options_editor()
+
+        completer = QCompleter(input.model())
+        input.setCompleter(completer)
+
+        # input.activated.connect(self.on_activated_exiftool_options_editor_input)  # signal
+        # input.lineEdit().returnPressed.connect(self.on_returnPressed_exiftool_options_editor_input) # signal
+
+    def clear_exiftool_options_editor(self):
+        self.exiftool_options_editor.property('userdata')[0] = None
+
+        # state
+        self.exiftool_options_editor_state.setEnabled(True)
+        self.exiftool_options_editor_state.setCheckState(Qt.CheckState.Unchecked)
+
+        # input
+        self.exiftool_options_editor_input.setCurrentIndex(-1)
+        # self.exiftool_options_editor_input.setCurrentText("")  # no need
+        self.exiftool_options_editor_input.setEnabled(True)
+
+        # description
+        self.exiftool_options_editor_description.setText("")
+
+        # button
+        self.exiftool_options_editor_delete.setEnabled(False)
+
+    def update_exiftool_option_editor(self, update_state: bool = True, update_input: bool = True, update_description: bool = True, update_button: bool = True):
+        layout_editor = self.exiftool_options_editor
+        button: QToolButton = layout_editor.property('userdata')[0]
+
+        if button:
+            option: str = button.text()
+            state: str = button.property('userdata')[1]
+
+        # state
+        if button and update_state:
+            self.exiftool_options_editor_state.setEnabled(False if state == 'auto' or state == 'forced' else True)
+
+            checkState: Qt.CheckState = \
+                Qt.CheckState.PartiallyChecked if state == 'auto' else \
+                Qt.CheckState.Checked if state == 'forced' or state == 'on' else \
+                Qt.CheckState.Unchecked
+            self.exiftool_options_editor_state.setCheckState(checkState)
+
+        # input
+        if button and update_input:
+            self.exiftool_options_editor_input.setCurrentText(option)
+            self.exiftool_options_editor_input.setEnabled(False if state == 'auto' or state == 'forced' else True)
+
+        # description
+        if update_description:
+            if not button:
+                option = self.exiftool_options_editor_input.currentText()
+
+            option_def = self.exiftool_option_defs.find_option(option)
+            self.exiftool_options_editor_description.setText(
+                f"{option_def[0]}\n {option_def[1]}" if option_def else "Unrecognized option."
+            )
+
+        # button_delete
+        if button and update_button:
+            self.exiftool_options_editor_delete.setEnabled(False if state == 'auto' or state == 'forced' or state == 'on' else True)
+
+    def init_exiftool_option(self, option, state) -> QToolButton:
+        button = QToolButton()
+        button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        button.setCheckable(True)
+
+        button.setProperty("userdata", {0: option, 1: state})  # userdata (shallow copy)
+
+        button.clicked.connect(self.on_clicked_exiftool_option)  # signal
+
+        return button
+
+    def update_exiftool_option(self, button: QToolButton, update_text: bool = True, update_state: bool = True):
+
+        option: str = button.property('userdata')[0]
+        state: str = button.property('userdata')[1]
+
+        if update_text:
+            button.setText(option)
+
+        if update_state:
+            colour: QColor = None
+
+            if state == 'auto':
+                colour = QColor(0, 191, 255, 255)
+            elif state == 'forced':
+                colour = QColor(255, 127, 0, 255)
+            elif state == 'on':
+                colour = QColor(255, 69, 0, 223)
+            elif state == 'off':
+                colour = QColor(154, 205, 50, 255)
+
+            if colour:
+                rgba = f"rgba({colour.red()}, {colour.green()}, {colour.blue()}, {colour.alphaF()})"
+                rgba_h = f"rgba({colour.red()}, {colour.green()}, {colour.blue()}, {colour.alphaF()/2})"
+                rgba_d = f"rgba({colour.red()/2}, {colour.green()/2}, {colour.blue()/2}, {colour.alphaF()})"
+                button.setStyleSheet(f"""
+                    QToolButton {{
+                        background-color: {rgba};
+                        border-radius: 10px;
+                    }}
+
+                    QToolButton:hover {{
+                        background-color: {rgba_h};
+                    }}
+
+                    QToolButton:checked {{
+                        background-color: {rgba};
+                        border: 2px solid {rgba_d};
+                    }}
+
+                """)
+
+    def relocate_exiftool_options(self):
+        layout: QGridLayout = self.exiftool_options_display
+        option_list: list[QToolButton] = layout.property('userdata')[0]
+
+        # get total length
         count_letters = 0
-        for k in options:
-            count_letters += len(k)
+        for button in option_list:
+            _length = len(button.property('userdata')[0])
+            _length = _length if _length > 0 else 1
+            count_letters += _length
+
+        # determin location
         r = 0
         c = 0
-        for k, v in options.items():
-            butt = QToolButton()
-            butt.setCheckable(True)
-            butt.setText(k)
-            butt.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-            layout.addWidget(butt, r, c, 1, len(k))  # auto clear?
-            if v == 'auto':
-                butt.setChecked(False)
-                butt.setEnabled(False)
-            elif v == 'forced':
-                butt.setChecked(True)
-                butt.setEnabled(False)
-            elif v == 'on':
-                butt.setChecked(True)
-                butt.setEnabled(True)
-            elif v == 'off':
-                butt.setChecked(False)
-                butt.setEnabled(True)
+        for button in option_list:
+            option: str = button.property('userdata')[0]
+            _length = len(option)
+            _length = _length if _length > 0 else 1
+            layout.addWidget(button, r, c, 1, _length)  # auto clear?
 
-            c += len(k)
+            c += _length
             if c+1 > count_letters/3:
                 r += 1
                 c = 0
+
+    def save_exiftool_options(self):
+        option_list: list[QToolButton] = self.exiftool_options_display.property('userdata')[0]
+        from collections import OrderedDict
+        options: OrderedDict[str, str] = {}
+        for butt in option_list:
+            option = butt.property('userdata')[0]
+            state = butt.property('userdata')[1]
+            options[option] = state
+        self.settings.exiftool_options = options
 
     '''################################################################
     Editting and Functions
@@ -554,6 +739,11 @@ class ExifToolGUI():
         self.comboBox_functions.currentIndexChanged.connect(self.on_currentIndexChanged__comboBox_functions)
         self.pushButton_functions_exec.clicked.connect(self.on_clicked__pushButton_functions_exec)
 
+        self.exiftool_options_editor_state.clicked.connect(self.on_clicked_exiftool_options_editor_state)
+        self.exiftool_options_editor_input.currentTextChanged.connect(self.on_currentTextChanged_exiftool_options_editor_input)
+        self.exiftool_options_editor_add.clicked.connect(self.on_clicked_exiftool_options_editor_add)
+        self.exiftool_options_editor_delete.clicked.connect(self.on_clicked_exiftool_options_editor_delete)
+
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
         if not dir or dir in self.settings.dirs:
@@ -634,6 +824,119 @@ class ExifToolGUI():
         ExifToolGUIFuncs.Exec(func, args)
         self.edit_table_for_group()
         self.edit_current_tree_for_single()
+
+    # memu_exiftool
+
+    def on_clicked_exiftool_option(self):
+        button: QPushButton = self.sender()
+
+        if button.isChecked():
+
+            layout_editor = self.exiftool_options_editor
+
+            last: QToolButton = layout_editor.property('userdata')[0]
+            if last and last is not button:
+                last.setChecked(False)
+
+            layout_editor.property('userdata')[0] = button
+
+            self.update_exiftool_option_editor()
+
+        else:
+            self.clear_exiftool_options_editor()
+
+    def on_clicked_exiftool_options_editor_state(self):
+        button: QToolButton = self.exiftool_options_editor.property('userdata')[0]
+        if button:
+            state: str = 'on' if self.exiftool_options_editor_state.isChecked() else 'off'
+            button.property('userdata')[1] = state
+
+            self.update_exiftool_option(button, False, True)
+            self.update_exiftool_option_editor(False, False, False, True)
+
+            self.save_exiftool_options()
+
+    def on_currentTextChanged_exiftool_options_editor_input(self):
+        # get rid of description
+        input: QComboBox = self.exiftool_options_editor_input
+        text = input.currentText()
+        text_l = text.split('\n')
+        input.setCurrentText(text_l[0])
+
+        button: QToolButton = self.exiftool_options_editor.property('userdata')[0]
+        if button:
+            option = self.exiftool_options_editor_input.currentText()
+            button.property('userdata')[0] = option
+
+            self.update_exiftool_option(button, True, False)
+
+            self.relocate_exiftool_options()
+
+        self.update_exiftool_option_editor(False, False, True, False)
+        self.save_exiftool_options()
+
+    def on_clicked_exiftool_options_editor_add(self):
+        layout_display: QGridLayout = self.exiftool_options_display
+        layout_editor: QGridLayout = self.exiftool_options_editor
+
+        option_list: list[QToolButton] = layout_display.property('userdata')[0]
+        option_last: QToolButton = layout_editor.property('userdata')[0]
+
+        index = len(option_list)
+        if option_last:  # and option_last in option_list:
+            index = option_list.index(option_last)
+
+        button = self.init_exiftool_option(
+            self.exiftool_options_editor_input.currentText(),
+            'off'
+        )
+
+        option_list.insert(index, button)
+
+        self.update_exiftool_option(button)
+        self.relocate_exiftool_options()
+
+        layout_editor.property('userdata')[0] = button
+
+        if option_last:
+            option_last.setChecked(False)
+
+        button.setChecked(True)
+
+        self.save_exiftool_options()
+
+    def on_clicked_exiftool_options_editor_delete(self):
+        layout_display: QGridLayout = self.exiftool_options_display
+        layout_editor: QGridLayout = self.exiftool_options_editor
+
+        option_list: list[QToolButton] = layout_display.property('userdata')[0]
+        option_current: QToolButton = layout_editor.property('userdata')[0]
+
+        if option_current:
+            self.clear_exiftool_options_editor()
+
+            option_list.remove(option_current)
+
+            layout_display.removeWidget(option_current)
+            option_current.deleteLater()
+
+            self.relocate_exiftool_options()
+
+        self.save_exiftool_options()
+
+    # def on_activated_exiftool_options_editor_input(self, index: int):
+    #     print(f"activated: {index}")
+    #     input: QComboBox = self.exiftool_options_editor_input
+    #     userdata = input.itemData(index)
+    #     print(userdata)
+    #     if userdata:
+    #         hint, description = userdata
+    #         input.setCurrentText(hint)
+    #         print(hint)
+    #         # input.setEditText(hint)
+    #     # else:
+    #     #     text = input.lineEdit().text()
+    #     #     input.setEditText(text)
 
     '''################################################################
     Additional
