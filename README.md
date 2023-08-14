@@ -14,39 +14,38 @@ ExifToolGUI is a graphical user interface for ExifTool.
 ## IO
 ### Read
 
-- Tag names are exported in JSON format (-j), and full group names are required (-G:0:1:2:3:4:5:6:7). Tag names instead of descriptions
-are always retruned by JSON, so no need to specified short output format (-s).
+- Tag names are exported in JSON format (-j). Tag names instead of descriptions are always retruned by JSON, so no need to specified short output format (-s). The option allowing to extract duplicate tags (-a) is implied when json is used.
 
-- Tag names are not necessarily displayed with full group names. Actually, GUI displays simplified tag groups according to settings.
+- The option to output metadata in binary format (-b) is auto applied when necessary, to handle, e.g., repairing no utf-8 values, extracting embedded thumbnails and so on.
+
+- Full group names (-G:0:1:2:3:4:5:6:7) are required by program. However, tag names are not necessarily displayed with full group names. Actually, GUI displays simplified tag groups according to settings.
 
 - Separator string for tag values of list items is forced to be ";" (-sep ;).
 
 - Tag values are exported as original values with no print conversion (-n) by default.
-
-- Duplicate tags are allowed to be extracted (-a) by default.
 
 - Tag values of unknown tags as well as unknown information from some binary data blocks are extracted (-U) by default.
 
 
 ### Write
 
-- Click any cell to edit the value you want directly.
+- Click any cell to edit the value directly.
 
 - GUI normally does not restrict values inputted. That means user can try to modify any tag by any value, but whether the edited value can be saved back to file depends on the ExifTool side. Excptions are made for GUI defined Virtual Tags and Formatting Tags. Inputted values for thoese tags could be modified (normalised) or rejected by GUI according to their definitions. See below:
 
-    - For a GUI defined Formatting Tag, the inputted value would be normalised during editing. e.g. GUI would try to format the value of a defined datetime tag according to it's definition. If formatting fails, original user inputted value keeps.
+    - For a GUI defined Formatting Tag, the input value would be normalised during editing. e.g. GUI would try to format the value of a defined datetime tag according to it's definition. If formatting fails, original user inputted value keeps.
 
     - For a GUI defined Virtual Tags, GUI would try to interpret the inputted value first, and if it's invaild, this editing will be abandoned.
 
-- If auto-saving is not on (default), the edited values are cached but have not been written back to files. User should click the Save Button to write the edited values back to files. The edited but not saved cells is coloured to yellow. 
+- If auto-saving is not on (default), the edited values are cached. User should click the Save Button to write the edited values back to files. The edited but not saved cells is coloured to yellow. 
 
-- Once the Save Button is click, the colour of edited cells would be changed to indicate whether saving is successful or not, i.e. green means successful while read means failed.
+- Once the Save Button is click, the colour of edited cells would be changed to indicate whether saving is successful or not, i.e. green means successful while red means failed.
 
 - If an edited value is failed to save, that means ExifTool does not support writting that tag or the value inputed does not meet the specified format of that tag. Refer to log to see the error information. Detailed doc could be found on the ExifTool official website.
 
 - File modification date/time is preserved (-P) by default.
 
-- Overwrite the original file when writing (-overwrite_original) by default.
+- Program overwrites the original file (-overwrite_original) by default.
 
 
 ## Virtual Tags
@@ -115,7 +114,6 @@ Some functions are defined to batch editing tags:
     "preview_size": 64,
     "preview_precision": 1.5
     ```
-
 
 ### ExifTool options
 
