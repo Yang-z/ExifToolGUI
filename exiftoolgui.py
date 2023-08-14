@@ -481,7 +481,7 @@ class ExifToolGUI(QObject):
         # button
         self.exiftool_options_editor_delete.setEnabled(False)
 
-    def update_exiftool_option_editor(self, update_state: bool = True, update_input: bool = True, update_description: bool = True, update_button: bool = True):
+    def update_exiftool_options_editor(self, update_state: bool = True, update_input: bool = True, update_description: bool = True, update_button: bool = True):
         layout_editor = self.exiftool_options_editor
         button: QToolButton = layout_editor.property('userdata')[0]
 
@@ -847,7 +847,7 @@ class ExifToolGUI(QObject):
 
             layout_editor.property('userdata')[0] = button
 
-            self.update_exiftool_option_editor()
+            self.update_exiftool_options_editor()
 
         else:
             self.clear_exiftool_options_editor()
@@ -859,7 +859,7 @@ class ExifToolGUI(QObject):
             button.property('userdata')[1] = state
 
             self.update_exiftool_option(button, False, True)
-            self.update_exiftool_option_editor(False, False, False, True)
+            self.update_exiftool_options_editor(False, False, False, True)
 
             self.save_exiftool_options()
 
@@ -879,7 +879,7 @@ class ExifToolGUI(QObject):
 
             self.relocate_exiftool_options()
 
-        self.update_exiftool_option_editor(False, False, True, False)
+        self.update_exiftool_options_editor(False, False, True, False)
         self.save_exiftool_options()
 
     def on_clicked_exiftool_options_editor_add(self):
@@ -903,12 +903,13 @@ class ExifToolGUI(QObject):
         self.update_exiftool_option(button)
         self.relocate_exiftool_options()
 
-        layout_editor.property('userdata')[0] = button
-
         if option_last:
             option_last.setChecked(False)
 
         button.setChecked(True)
+
+        layout_editor.property('userdata')[0] = button
+        self.update_exiftool_options_editor(False, False, False, True)
 
         self.save_exiftool_options()
 
@@ -930,20 +931,6 @@ class ExifToolGUI(QObject):
             self.relocate_exiftool_options()
 
         self.save_exiftool_options()
-
-    # def on_activated_exiftool_options_editor_input(self, index: int):
-    #     print(f"activated: {index}")
-    #     input: QComboBox = self.exiftool_options_editor_input
-    #     userdata = input.itemData(index)
-    #     print(userdata)
-    #     if userdata:
-    #         hint, description = userdata
-    #         input.setCurrentText(hint)
-    #         print(hint)
-    #         # input.setEditText(hint)
-    #     # else:
-    #     #     text = input.lineEdit().text()
-    #     #     input.setEditText(text)
 
     '''################################################################
     Additional
