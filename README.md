@@ -14,11 +14,13 @@ ExifToolGUI is a graphical user interface for ExifTool.
 ## IO
 ### Read
 
-- Tag names are exported in JSON format (-j). Tag names instead of descriptions are always retruned by JSON, so no need to specified short output format (-s). The option allowing to extract duplicate tags (-a) is implied when json is used.
+- Tag names and values are exported in JSON format (-j). Tag names instead of descriptions are always retruned by JSON, so no need to specify short output format (-s) explicitly. In the same way, the option allowing to extract duplicate tags (-a) is also implied when json is used.
 
-- The option to output metadata in binary format (-b) is auto applied when necessary, to handle, e.g., repairing no utf-8 values, extracting embedded thumbnails and so on.
+- The option to output metadata in binary format (-b) is auto applied when necessary, to handle, e.g., repairing non-utf8 values, extracting embedded thumbnails and so on.
 
-- Full group names (-G:0:1:2:3:4:5:6:7) are required by program. However, tag names are not necessarily displayed with full group names. Actually, GUI displays simplified tag groups according to settings.
+- Full group names (-G:0:1:2:3:4:5:6:7) are required by program. However, tag names are not necessarily to be displayed with full group names. Actually, GUI displays simplified tag groups according to the settings.
+
+- Charset of filename is forced to be utf8 (-charset filename=utf8), to avoid garbled filenames on Windows with non-utf8 codepage.
 
 - Separator string for tag values of list items is forced to be ";" (-sep ;).
 
