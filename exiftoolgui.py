@@ -434,7 +434,7 @@ class ExifToolGUI(QObject):
 
         options = self.settings.exiftool_options
         for option, state in options.items():
-            butt = self.init_exiftool_option(option, state)
+            butt = self.init_exiftool_option(option.split('\0')[0], state)
             option_list.append(butt)
             self.update_exiftool_option(butt)
 
@@ -602,6 +602,13 @@ class ExifToolGUI(QObject):
         for butt in option_list:
             option = butt.property('userdata')[0]
             state = butt.property('userdata')[1]
+
+            dup: int = 0
+            option_base = option
+            while option in options:
+                dup += 1
+                option = f"{option_base}\0{dup}"
+
             options[option] = state
         self.settings.exiftool_options = options
 

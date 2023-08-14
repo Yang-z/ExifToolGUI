@@ -64,7 +64,7 @@ class ExifToolGUISettings:
 
     @property
     def exiftool_params(self) -> list:
-        return [k.replace(' ', '\n') for k, v in self.exiftool_options.items() if v == 'forced' or v == 'on']
+        return [k.split('\0')[0].replace(' ', '\n') for k, v in self.exiftool_options.items() if v == 'forced' or v == 'on']
 
     '''################################################################
     exiftoolgui_options
