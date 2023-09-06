@@ -109,7 +109,7 @@
     "rename": {
       "format": {
         "type": "format",
-        "default": "<?Timeline> <File:FileName>.<File:FileTypeExtension>"
+        "default": "<?Timeline> <File:FileName>[:].<File:FileTypeExtension>"
       }
     },
     "set_value": {

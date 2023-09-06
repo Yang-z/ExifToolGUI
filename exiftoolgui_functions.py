@@ -42,11 +42,24 @@ class ExifToolGUIFuncs:
             value = self.data.get(file_index, tag)
             if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag('File:FileName'):
                 value, _ = os.path.splitext(value)
+
+            start = match.group(2)
+            end = match.group(3)
+
+            if start!=None and end!=None:
+                start = None if start == '' else int(start)
+                end = None if end == '' else int(end)
+
+                try:
+                    value = value[start:end]
+                except:
+                    pass
+
             return value
 
         for i in file_indexes:
             new_name = re.sub(
-                r'<([^>]*)>',
+                r'<([^>]*)>(?:\[(\d*):(\d*)\])?',
                 lambda match: fill_value(match, i),
                 format
             )
