@@ -1,5 +1,6 @@
 import queue
 import threading
+import atexit
 
 from datetime import datetime
 
@@ -24,13 +25,13 @@ class ExifToolGUILog:
         self._thread.daemon = True
         self._thread.start()
 
-    def __del__(self):
-        self._queue.join()
+        atexit.register(self._queue.join)
 
     def append(self, cat: str, file: str, message: str) -> None:
+        message = str(message).strip()
         timestamp: str = f"{datetime.now().astimezone().strftime('%Y:%m:%d %H:%M:%S.%f%z')}"
         message_f: str = f"{timestamp} [{cat}]: \n  SourceFile: {file}\n  {message}"
-        self._queue.put(message_f + '\n')
+        self._queue.put(message_f)
         # print("log")
 
     def write(self):
@@ -38,7 +39,6 @@ class ExifToolGUILog:
             while True:
                 with self._lock:
                     message = self._queue.get()
-                    message = str(message).strip()
                     file.write(message + "\n")
                     file.flush()
                     self._queue.task_done()
@@ -51,3 +51,6 @@ if __name__ == "__main__":
 
     log.append('test_cat1', 'test_file1', 'test_message1')
     log.append('test_cat2', 'test_file2', 'test_message2')
+
+    # import time
+    # time.sleep(5)
