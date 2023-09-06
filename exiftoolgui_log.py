@@ -1,5 +1,5 @@
-import asyncio
-import aiofiles
+import queue
+import threading
 
 from datetime import datetime
 
@@ -16,67 +16,38 @@ class ExifToolGUILog:
 
     def __init__(self):
         self.source_file = 'exiftoolgui.log'
-        self.queue = asyncio.Queue()
 
-        # self.consumer_task = None
+        self._queue = queue.Queue()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self.write)
 
-        # self.loop = asyncio.get_event_loop()
-        # self.loop = asyncio.new_event_loop()
-        # asyncio.set_event_loop(self.loop)
-        # self.consumer_task = self.loop.create_task(self.write_log())
+        self._thread.daemon = True
+        self._thread.start()
 
-        pass
+    def __del__(self):
+        self._queue.join()
 
-    def log(self, cat: str, file: str, message: str) -> None:
+    def append(self, cat: str, file: str, message: str) -> None:
         timestamp: str = f"{datetime.now().astimezone().strftime('%Y:%m:%d %H:%M:%S.%f%z')}"
         message_f: str = f"{timestamp} [{cat}]: \n  SourceFile: {file}\n  {message}"
-        self.queue.put_nowait(message_f + '\n')
-        print("log")
+        self._queue.put(message_f + '\n')
+        # print("log")
 
-    async def write(self):
-        async with aiofiles.open(self.source_file, mode='a', encoding='utf-8') as file:
+    def write(self):
+        with open(self.source_file, mode='a', encoding='utf-8') as file:
             while True:
-                message = await self.queue.get()
-                await file.write(message + "\n")
-                await file.flush()
-                self.queue.task_done()
-                print("write")
-
-    async def close(self):
-        await self.queue.join()
-        if self.consumer_task:
-            self.consumer_task.cancel()
-            try:
-                await self.consumer_task
-            except asyncio.CancelledError:
-                pass
-
-    # def start(self):
-    #     # self.consumer_task = asyncio.create_task(self.write_log())
-    #     # await self.consumer_task
-    #     self.loop.run_until_complete(self.write_log())
-
-    # def stop(self):
-    #     asyncio.run(self.close())
+                with self._lock:
+                    message = self._queue.get()
+                    message = str(message).strip()
+                    file.write(message + "\n")
+                    file.flush()
+                    self._queue.task_done()
+                    # print("write")
 
 
 if __name__ == "__main__":
 
-    async def generate():
-        while True:
-            await asyncio.sleep(1)
-            log.log('test_cat1', 'test_file1', 'test_message1')
-            log.log('test_cat2', 'test_file2', 'test_message2')
-
-    async def main():
-        # task_generate = asyncio.create_task(generate())
-        # log.consumer_task = asyncio.create_task(log.write())
-        await asyncio.gather(generate(), log.write())
-
     log = ExifToolGUILog.Instance
 
-    asyncio.run(main())
-
-    # asyncio.run(log.start())
-    # log.loop.run_until_complete(log.write_log())
-    # log.stop()
+    log.append('test_cat1', 'test_file1', 'test_message1')
+    log.append('test_cat2', 'test_file2', 'test_message2')
