@@ -14,6 +14,7 @@ from exiftool.helper import ExifToolHelper, ExifToolExecuteError
 
 from exiftoolgui_aide import ExifToolGUIAide
 from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_log import ExifToolGUILog
 
 
 class ExifToolGUIData:
@@ -71,7 +72,7 @@ class ExifToolGUIData:
         Here, we adopt the supporting for 'utf-8',
         and keep the compatibility of reading existing non-utf-8 values.
         '''
-        self.exiftool = ExifToolHelper(common_args=None)
+        self.exiftool: ExifToolHelper = ExifToolHelper(common_args=None)
         self.exiftool.encoding = 'utf-8'
 
         '''
@@ -85,6 +86,7 @@ class ExifToolGUIData:
         atexit.register(self.exiftool.terminate)
 
         self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+        self.log: ExifToolGUILog = ExifToolGUILog.Instance
 
         self.cache: list[dict[str, ]] = []
         self.cache_edited: list[dict[str, ]] = []
@@ -154,7 +156,7 @@ class ExifToolGUIData:
 
         # handle ExifTool:Warning
         for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
-            self.log(result['SourceFile'], 'ExifTool:Warning:load', warning)
+            self.log.append('ExifTool:Warning:load', result['SourceFile'], warning)
             result.pop(tag_w)
 
         return result
@@ -220,7 +222,7 @@ class ExifToolGUIData:
                 return
             value = self.anti_duplicate_file_name(file_index, value)
         metadata[tag_n] = value
-        self.log(self.cache[file_index]['SourceFile'], 'ExifToolGUI:Info:Edit', {tag: value})
+        self.log.append('ExifToolGUI:Info:Edit', self.cache[file_index]['SourceFile'], {tag: value})
 
     def anti_duplicate_file_name(self, file_index: int, value: str, suffix='_') -> str:
         tag_n = ExifToolGUIData.Normalise_Tag('File:FileName')
@@ -261,7 +263,7 @@ class ExifToolGUIData:
             if len(unsaved[file_index]) == 0:
                 continue
             file = self.cache[file_index]['SourceFile']
-            self.log(file, 'ExifToolGUI:Info:Save', str(unsaved[file_index]))
+            self.log.append('ExifToolGUI:Info:Save', file, str(unsaved[file_index]))
             # set tags to file
 
             self.write_tags(file, unsaved[file_index], self.settings.exiftool_params, 'save')
@@ -614,7 +616,7 @@ class ExifToolGUIData:
                     if as_utc:
                         dt = dt.replace(tzinfo=timezone.utc)
                 else:
-                    self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "datetime tag is not defined")
+                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], "datetime tag is not defined")
 
                 if dt.tzinfo == None:
                     # fix by user specified timezone
@@ -623,7 +625,7 @@ class ExifToolGUIData:
                         dt = dt.replace(tzinfo=default_tz)
 
                 if dt.tzinfo == None:
-                    self.log(file_index, "ExifToolGUI:Warnning:get_datetime", "naive datetime is returned")
+                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], "naive datetime is returned")
             return dt, len_subsec
 
         return None, None
@@ -654,19 +656,35 @@ class ExifToolGUIData:
                     dt = dt.replace(tzinfo=None)
 
                 if as_utc != True and is_timezone_explicit == False:
-                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "Timezone info is losing")
+                    self.log.append(
+                        "ExifToolGUI:Warnning:resolve_datetime",
+                        self.cache[file_index]['SourceFile'],
+                        f"{tag_r}: Timezone info is losing"
+                    )
 
             else:
-                self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "naive datetime is passed")
+                self.log.append(
+                    "ExifToolGUI:Warnning:resolve_datetime",
+                    self.cache[file_index]['SourceFile'],
+                    f"{tag_r}: naive datetime is passed"
+                )
 
             support_subsec: bool = detatime_tag_def.get('support_subsec', None)
             if support_subsec == False:
                 len_subsec = 0
                 if dt.microsecond != 0:
-                    self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "SubSecond info is losing")
+                    self.log.append(
+                        "ExifToolGUI:Warnning:resolve_datetime",
+                        self.cache[file_index]['SourceFile'],
+                        f"{tag_r}: SubSecond info is losing"
+                    )
 
         else:
-            self.log(file_index, "ExifToolGUI:Warnning:resolve_datetime", "datetime tag is not defined")
+            self.log.append(
+                "ExifToolGUI:Warnning:resolve_datetime",
+                self.cache[file_index]['SourceFile'],
+                f"{tag_r}: datetime tag is not defined"
+            )
 
         return ExifToolGUIAide.Datetime_to_Str((dt, len_subsec))
 
@@ -680,9 +698,9 @@ class ExifToolGUIData:
         try:
             result.update(self.exiftool.get_tags(file, tags, params)[0])
         except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:{type(e).__name__}:Read:{process_name}', e.stderr)
+            self.log.append(f'ExifTool:Error:{type(e).__name__}:Read:{process_name}', file, e.stderr)
         except Exception as e:  # UnicodeEncodeError
-            self.log(file, f'ExifToolGUI:Error:{type(e).__name__}:Read:{process_name}', str(e))
+            self.log.append(f'ExifToolGUI:Error:{type(e).__name__}:Read:{process_name}', file, str(e))
 
         if fix_non_utf8:
             self.fix_non_utf8_values(file, result)
@@ -696,12 +714,12 @@ class ExifToolGUIData:
         try:
             r = self.exiftool.set_tags(file, tags, params)
             if r:
-                self.log(file, f'ExifTool:Info:Write:{process_name}', r)
+                self.log.append(f'ExifTool:Info:Write:{process_name}', file, r)
             return True
         except ExifToolExecuteError as e:
-            self.log(file, f'ExifTool:Error:{type(e).__name__}:Write:{process_name}', e.stderr)
+            self.log.append(f'ExifTool:Error:{type(e).__name__}:Write:{process_name}', file, e.stderr)
         except Exception as e:  # UnicodeEncodeError UnicodeDecodeError
-            self.log(file, f'ExifToolGUI:Error:{type(e).__name__}:Write:{process_name}', str(e))
+            self.log.append(f'ExifToolGUI:Error:{type(e).__name__}:Write:{process_name}', file, str(e))
 
         return False
 
@@ -790,24 +808,16 @@ class ExifToolGUIData:
             if fixed == None:
                 # keep base64 string instead
                 fixed = maybe_base64
-                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"unknown encoding: {tag_garbled}")
+                self.log.append('ExifToolGUI:Warning:Non-UTF8:', file, f"{tag_garbled}: unknown encoding")
             else:
-                self.log(file, f'ExifToolGUI:Warning:Non-UTF8:', f"{encoding} value found: {tag_garbled}")
+                self.log.append('ExifToolGUI:Warning:Non-UTF8:', file, f"{tag_garbled}: {encoding} value found")
 
             if fixed == value_garbled:
                 # Is it possible?
                 # fixed value is the same as the value garbled by utf-8!
-                print("fixed value is the same as value garbled by utf-8!")
+                self.log.append('ExifToolGUI:Report:Non-UTF8:', file, f"{tag_garbled}: fixed value is the same as value garbled by utf-8!")
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
-
-    def log(self, source_file: str, cat: str, message: str):
-        message = str(message).strip()
-        datetime_str = f"{datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S.%f%z')}"
-        if type(source_file) == int:
-            source_file = self.cache[source_file]['SourceFile']
-        log = f"{datetime_str} [{cat}]:\n  SourceFile: {source_file}\n  {message}"
-        print(log)
 
 
 if __name__ == "__main__":
