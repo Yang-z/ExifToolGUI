@@ -15,9 +15,16 @@ from exiftoolgui_settings import ExifToolGUISettings
 from exiftoolgui_data import ExifToolGUIData
 from exiftool_options import ExifToolOptions
 
+mutex = QMutex()
+
 
 class ExifToolGUI(QObject):
+
+    # previewLoaded = Signal(QTableWidgetItem, QPixmap)
+
     def __init__(self) -> None:
+        # mutex.lock()
+
         super().__init__()
 
         self.app: QApplication = QApplication(sys.argv)
@@ -36,6 +43,7 @@ class ExifToolGUI(QObject):
         # # use @property to get dynamically
 
         self.adjust_main_window()
+        self.main_window.show()
 
         self.reload_list_for_dirs()  # reload_table_for_group()
 
@@ -45,7 +53,8 @@ class ExifToolGUI(QObject):
 
         self.add_event_handlers()
 
-        self.main_window.show()
+        # mutex.unlock()
+
         sys.exit(self.app.exec())
 
     '''################################################################
@@ -166,8 +175,10 @@ class ExifToolGUI(QObject):
         self.edit_table_for_group()
 
     def reload_table_for_group(self):
+
         table: QTableWidget = self.table_for_group
 
+        mutex.lock()
         table.blockSignals(True)
         table.clear()
 
@@ -186,26 +197,29 @@ class ExifToolGUI(QObject):
                 value = self.data.get(file_index, tag, default='')
                 item = QTableWidgetItem(str(value))
 
-                item.setData(Qt.UserRole, {"file_index": file_index, "tag": tag})  # mark
+                item.setData(Qt.UserRole, {"file_index": file_index, "tag": tag, "gui": self})  # mark
 
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    pic = self.get_preview(value, self.settings.preview_size, self.settings.preview_precision)
-                    if pic:
-                        item.setData(Qt.DecorationRole, pic)
+                    task = GetPreviewTask(item, value, self.settings.preview_size, self.settings.preview_precision)
 
                 table.setItem(file_index, column, item)
 
         table.resizeColumnsToContents()
-        table.resizeRowsToContents()
+        # table.resizeRowsToContents()
         if table.columnWidth(0) > 300:
             table.setColumnWidth(0, 300)
 
         table.blockSignals(False)
+        mutex.unlock()
 
     def sort_table_for_group(self, column):
         table = self.table_for_group
+
+        mutex.lock()
+        table.blockSignals(True)
+
         order = table.horizontalHeader().sortIndicatorOrder()
 
         h_tag = table.horizontalHeaderItem(column).text()
@@ -213,8 +227,6 @@ class ExifToolGUI(QObject):
 
         current_item = table.currentItem()
         selected_items = table.selectedItems()
-
-        table.blockSignals(True)
 
         rows = []
         for row in range(table.rowCount()):
@@ -252,6 +264,7 @@ class ExifToolGUI(QObject):
             item.setSelected(True)
 
         table.blockSignals(False)
+        mutex.unlock()
 
     def load_tabs_for_single(self):
         tab_wedget: QTabWidget = self.tab_for_single
@@ -302,6 +315,7 @@ class ExifToolGUI(QObject):
         self.edit_tree_for_single(tree, strict)
 
     def reload_tree_for_single(self, tree: QTreeWidget, metadata: dict[str, ]):
+        mutex.lock()
         tree.blockSignals(True)
         tree.clear()
 
@@ -380,6 +394,7 @@ class ExifToolGUI(QObject):
             tree.setColumnWidth(0, 200)
 
         tree.blockSignals(False)
+        mutex.unlock()
 
     def load_comboBox_functions(self):
         comboBox_functions: QComboBox = self.comboBox_functions
@@ -646,6 +661,7 @@ class ExifToolGUI(QObject):
 
     def edit_table_for_group(self):
         table = self.table_for_group
+        mutex.lock()
         table.blockSignals(True)
 
         for row in range(0, table.rowCount()):
@@ -664,6 +680,7 @@ class ExifToolGUI(QObject):
                     item.setBackground(QBrush(colour))
 
         table.blockSignals(False)
+        mutex.unlock()
 
     def edit_current_tree_for_single(self):
         tab_wedget = self.tab_for_single
@@ -673,8 +690,13 @@ class ExifToolGUI(QObject):
         self.edit_tree_for_single(tree, strict)
 
     def edit_tree_for_single(self, tree: QTreeWidget, strict: bool = False):
+        currentTableItem: QTableWidgetItem = self.table_for_group.currentItem()
+        if not currentTableItem:
+            return
+
+        mutex.lock()
         tree.blockSignals(True)
-        file_index: int = self.table_for_group.currentItem().data(Qt.UserRole)['file_index']
+        file_index: int = currentTableItem.data(Qt.UserRole)['file_index']
 
         it = QTreeWidgetItemIterator(tree)
         while it.value():
@@ -691,6 +713,7 @@ class ExifToolGUI(QObject):
             it += 1
 
         tree.blockSignals(False)
+        mutex.unlock()
 
     def get_results__functions_parameters(self) -> tuple[str, dict[str,]]:
         func: str = self.comboBox_functions.currentText()
@@ -731,6 +754,7 @@ class ExifToolGUI(QObject):
     ################################################################'''
 
     def add_event_handlers(self):
+        mutex.lock()
         # Signals
         self.button_add_dir.clicked.connect(self.on_clicked__button_add_dir)
         self.button_remove_dir.clicked.connect(self.on_clicked__button_remove_dir)
@@ -750,6 +774,8 @@ class ExifToolGUI(QObject):
         self.exiftool_options_editor_input.currentTextChanged.connect(self.on_currentTextChanged_exiftool_options_editor_input)
         self.exiftool_options_editor_add.clicked.connect(self.on_clicked_exiftool_options_editor_add)
         self.exiftool_options_editor_delete.clicked.connect(self.on_clicked_exiftool_options_editor_delete)
+
+        mutex.unlock()
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
@@ -783,6 +809,11 @@ class ExifToolGUI(QObject):
         self.reload_current_tree_for_single()
 
     def on_item_changed__table_for_group(self, item: QTableWidgetItem):
+        # print(f"on_item_changed: {item.row(), item.column()}")
+
+        if item.column() == 0:
+            return
+
         file_index = item.data(Qt.UserRole)['file_index']
         tag = item.tableWidget().horizontalHeaderItem(item.column()).text()
         value = item.text()
@@ -932,40 +963,110 @@ class ExifToolGUI(QObject):
 
         self.save_exiftool_options()
 
-    '''################################################################
-    Additional
-    ################################################################'''
 
-    def get_preview(self, file_path: str, size: int, precision: float = 1.0, load_embedded: bool = False) -> QPixmap:
+'''################################################################
+Additional
+################################################################'''
 
-        if not hasattr(self, "cache_preview"):
-            self.cache_preview: dict[str, QPixmap] = {}
 
-        pixmap: QPixmap = self.cache_preview.get(file_path, None)
+class GetPreviewTask(QRunnable):
+
+    cache_preview: dict[str, QPixmap] = {}
+
+    threadPool = QThreadPool()
+    # threadPool.setMaxThreadCount(5)
+
+    def __init__(self, item: QTableWidgetItem, file_path: str, size: int, precision: float = 1.0, load_embedded: bool = False) -> None:
+        super().__init__()
+        self.item: QTableWidgetItem = item
+        self.file_path: str = file_path
+        self.size: int = size
+        self.precision: float = precision
+        self.load_embedded: bool = load_embedded
+
+        self.gui: ExifToolGUI = self.item.data(Qt.UserRole)["gui"]
+        self.pixel_ratio = self.gui.app.primaryScreen().physicalDotsPerInch()/96.0
+
+        # self.gui.previewLoaded.connect(self.gui.on_privew_loaded)
+
+        GetPreviewTask.threadPool.start(self)
+
+    def run(self):
+
+        pic = self.get_preview(cache=True)
+        self.set_preview(pic)
+        if pic:
+            return
+
+        pic = self.get_preview(cache=False, fast=True)
+        self.set_preview(pic)
+
+        pic = self.get_preview(cache=False, fast=False)
+        self.set_preview(pic)
+
+    def set_preview(self, pixmap: QPixmap):
         if pixmap:
+
+            # self.gui.previewLoaded.emit(self.item, pixmap)
+
+            '''
+            set DecorationRole data
+            also run in thread(s) to avoid freezening UI.
+
+            The function 'blockSignals(True)' could not avoid Qt to emit itemChanged signal everytime.
+            It happens frequently and randomly.
+
+            If move the fellowing code to main thread, the signal of itemChanged will not be emmitted as expected.
+            However, running in other threads, the signal will be emitted unexpectedly.
+            '''
+            mutex.lock()
+            self.item.tableWidget().blockSignals(True)
+
+            b0 = self.item.tableWidget().signalsBlocked()
+            # print(b0)
+
+            self.item.setData(Qt.DecorationRole, pixmap)
+            self.item.tableWidget().resizeRowToContents(self.item.row())
+
+            b1 = self.item.tableWidget().signalsBlocked()
+            # print(b1)
+
+            if (b0 != b1):
+                print("singnal status changed somewhere out of the current thread")
+                # not happen, not the reason.
+
+            self.item.tableWidget().blockSignals(False)
+            mutex.unlock()
+
+    def get_preview(self, cache: bool = True, fast: bool = False) -> QPixmap:
+
+        pixmap: QPixmap = None
+
+        if cache:
+            pixmap: QPixmap = GetPreviewTask.cache_preview.get(self.file_path, None)
             return pixmap
 
         # embedded
-        if pixmap == None:
-            if load_embedded:
-                b: bytes = self.data.load_thumbnail(file_path)
+        if pixmap == None and fast == False:
+            if self.load_embedded:
+                b: bytes = self.data.load_thumbnail(self.file_path)
                 if b:
                     pixmap = QPixmap()
                     pixmap.loadFromData(b)
 
         # image
-        if pixmap == None:
+        if pixmap == None and fast == False:
             QImageReader.setAllocationLimit(0)
-            image_reader = QImageReader(file_path)
+            image_reader = QImageReader(self.file_path)
             image_reader.setAutoTransform(True)
             if image_reader.canRead():
                 image: QImage = image_reader.read()
                 pixmap = QPixmap.fromImage(image)
 
         # video
-        if pixmap == None:
+        if pixmap == None and fast == False:
             import cv2
-            cap = cv2.VideoCapture(file_path)
+            cap = cv2.VideoCapture(self.file_path)
             if cap.isOpened():
                 ret, frame = cap.read()
                 if ret:
@@ -976,18 +1077,15 @@ class ExifToolGUI(QObject):
 
         # other
         if pixmap == None:
-            icon: QIcon = QFileIconProvider().icon(QFileInfo(file_path))
+            icon: QIcon = QFileIconProvider().icon(QFileInfo(self.file_path))
             pixmap = icon.pixmap(icon.availableSizes()[0])
 
-        if not hasattr(self, "pixel_ratio"):
-            self.pixel_ratio = self.app.primaryScreen().physicalDotsPerInch()/96.0
-
         if pixmap:
-            precision = precision if precision >= 1.0 else 1.0
+            precision = self.precision if self.precision >= 1.0 else 1.0
             pixmap.setDevicePixelRatio(self.pixel_ratio * precision)
-            pixmap = pixmap.scaledToHeight(size * precision)
+            pixmap = pixmap.scaledToHeight(self.size * precision)
 
-            self.cache_preview[file_path] = pixmap
+            GetPreviewTask.cache_preview[self.file_path] = pixmap
             return pixmap
 
 
