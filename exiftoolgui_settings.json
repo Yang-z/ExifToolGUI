@@ -199,7 +199,7 @@
     "?Timeline": {
       "&EXIF:DateTimeOriginal": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png"
+        "pattern": "(?i)jpe?g|tiff?|png|heic"
       },
       "&QuickTime:CreateDate": {
         "condition": "<File:FileTypeExtension>",
@@ -209,7 +209,7 @@
     "?ModifyDate": {
       "&EXIF:ModifyDate": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png"
+        "pattern": "(?i)jpe?g|tiff?|png|heic"
       },
       "&QuickTime:ModifyDate": {
         "condition": "<File:FileTypeExtension>",
@@ -219,7 +219,7 @@
     "?GPSTimeStamp": {
       "&EXIF:GPSDateTime": {
         "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png"
+        "pattern": "(?i)jpe?g|tiff?|png|heic"
       },
       "&QuickTime:GPSDateTime": {
         "condition": "<File:FileTypeExtension>",

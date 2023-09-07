@@ -616,7 +616,7 @@ class ExifToolGUIData:
                     if as_utc:
                         dt = dt.replace(tzinfo=timezone.utc)
                 else:
-                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], "datetime tag is not defined")
+                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], f"{tag_r}: datetime tag is not defined")
 
                 if dt.tzinfo == None:
                     # fix by user specified timezone
@@ -625,7 +625,7 @@ class ExifToolGUIData:
                         dt = dt.replace(tzinfo=default_tz)
 
                 if dt.tzinfo == None:
-                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], "naive datetime is returned")
+                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], f"{tag_r}: naive datetime is returned")
             return dt, len_subsec
 
         return None, None
@@ -819,6 +819,7 @@ class ExifToolGUIData:
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
 
+    
 
 if __name__ == "__main__":
     # data:ExifToolGUIData = ExifToolGUIData.Instance
