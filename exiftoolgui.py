@@ -43,15 +43,16 @@ class ExifToolGUI(QObject):
         # # use @property to get dynamically
 
         self.adjust_main_window()
-        self.main_window.show()
-
-        self.reload_list_for_dirs()  # reload_table_for_group()
 
         self.load_tabs_for_single()
         self.load_comboBox_functions()
         self.init_exiftool_options()
 
         self.add_event_handlers()
+
+        self.main_window.show()
+
+        self.reload_list_for_dirs()  # reload_table_for_group()
 
         # mutex.unlock()
 
@@ -84,6 +85,18 @@ class ExifToolGUI(QObject):
     @property
     def button_save(self) -> QPushButton:
         return self.main_window.findChild(QPushButton, 'button_save')
+
+    @property
+    def button_reset(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'button_reset')
+
+    @property
+    def button_refresh(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'button_refresh')
+
+    @property
+    def button_rebuild(self) -> QPushButton:
+        return self.main_window.findChild(QPushButton, 'button_rebuild')
 
     @property
     def comboBox_functions(self) -> QComboBox:
@@ -170,7 +183,7 @@ class ExifToolGUI(QObject):
         list_dirs: QListWidget = self.list_dirs
         list_dirs.clear()
         list_dirs.addItems(self.settings.dirs)
-        self.data.update()
+        self.data.reload()
         self.reload_table_for_group()
         self.edit_table_for_group()
 
@@ -202,12 +215,12 @@ class ExifToolGUI(QObject):
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    task = GetPreviewTask(item, value, self.settings.preview_size, self.settings.preview_precision)
+                    GetPreviewTask(item, value, self.settings.preview_size, self.settings.preview_precision)
 
                 table.setItem(file_index, column, item)
 
         table.resizeColumnsToContents()
-        # table.resizeRowsToContents()
+        table.resizeRowsToContents()
         if table.columnWidth(0) > 300:
             table.setColumnWidth(0, 300)
 
@@ -631,6 +644,15 @@ class ExifToolGUI(QObject):
     Editting and Functions
     ################################################################'''
 
+    def get_selected_file_indexes(self) -> list[int]:
+        file_indexes: list[int] = []
+        table: QTableWidget = self.table_for_group
+        for item in table.selectedItems():
+            file_index = item.data(Qt.UserRole)['file_index']
+            if file_index not in file_indexes:
+                file_indexes.append(file_index)
+        return file_indexes
+
     def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False):
         value_saved, value_edited, status = self.data.get(file_index, tag, default="", strict=strict, editing=True)
         value_saved = str(value_saved)
@@ -720,12 +742,12 @@ class ExifToolGUI(QObject):
 
         dict_args: dict[str,] = {}
 
-        dict_args['file_indexes'] = []
+        dict_args['file_indexes'] = self.get_selected_file_indexes()
         table: QTableWidget = self.table_for_group
-        for item in table.selectedItems():
-            file_index = item.data(Qt.UserRole)['file_index']
-            if file_index not in dict_args['file_indexes']:
-                dict_args['file_indexes'].append(file_index)
+        # for item in table.selectedItems():
+        #     file_index = item.data(Qt.UserRole)['file_index']
+        #     if file_index not in dict_args['file_indexes']:
+        #         dict_args['file_indexes'].append(file_index)
 
         dict_args['ref'] = table.currentItem().data(Qt.UserRole)['file_index']
 
@@ -758,7 +780,11 @@ class ExifToolGUI(QObject):
         # Signals
         self.button_add_dir.clicked.connect(self.on_clicked__button_add_dir)
         self.button_remove_dir.clicked.connect(self.on_clicked__button_remove_dir)
+
         self.button_save.clicked.connect(self.on_clicked__button_save)
+        self.button_reset.clicked.connect(self.on_clicked__button_reset)
+        self.button_refresh.clicked.connect(self.on_clicked__button_refresh)
+        self.button_rebuild.clicked.connect(self.on_clicked__button_rebuild)
 
         # 点击空白也触发，但不改变currentItem()
         # self.table_for_group.itemSelectionChanged.connect()
@@ -795,6 +821,27 @@ class ExifToolGUI(QObject):
 
     def on_clicked__button_save(self, checked=False):
         self.data.save()
+        self.edit_table_for_group()
+        self.edit_current_tree_for_single()
+
+    def on_clicked__button_reset(self):
+        file_indexes: list[int] = self.get_selected_file_indexes()
+        for file_index in file_indexes:
+            self.data.reset(file_index)
+        self.edit_table_for_group()
+        self.edit_current_tree_for_single()
+
+    def on_clicked__button_refresh(self):
+        file_indexes: list[int] = self.get_selected_file_indexes()
+        for file_index in file_indexes:
+            self.data.refresh(file_index)
+        self.edit_table_for_group()
+        self.edit_current_tree_for_single()
+
+    def on_clicked__button_rebuild(self):
+        file_indexes: list[int] = self.get_selected_file_indexes()
+        for file_index in file_indexes:
+            self.data.rebuild(file_index)
         self.edit_table_for_group()
         self.edit_current_tree_for_single()
 
@@ -1027,6 +1074,7 @@ class GetPreviewTask(QRunnable):
 
             self.item.setData(Qt.DecorationRole, pixmap)
             self.item.tableWidget().resizeRowToContents(self.item.row())
+            # self.item.tableWidget().resizeColumnToContents(self.item.column())
 
             b1 = self.item.tableWidget().signalsBlocked()
             # print(b1)

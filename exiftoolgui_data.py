@@ -121,7 +121,7 @@ class ExifToolGUIData:
     #         self.cache_edited.append({})
     #         self.cache_failed.append({})
 
-    def update(self):
+    def reload(self, cache:bool=True):
         _cache: list[dict[str, ]] = []
         _cache_edited: list[dict[str, ]] = []
         _cache_failed: list[dict[str, ]] = []
@@ -132,11 +132,12 @@ class ExifToolGUIData:
 
             # find exist file cache
             exist_file_index: int = None
-            for file_index in range(len(self.cache)):
-                file = self.cache[file_index]['SourceFile']
-                if os.path.samefile(file, _file):
-                    exist_file_index = file_index
-                    break
+            if cache:
+                for file_index in range(len(self.cache)):
+                    file = self.cache[file_index]['SourceFile']
+                    if os.path.samefile(file, _file):
+                        exist_file_index = file_index
+                        break
 
             if exist_file_index != None:
                 _cache.append(self.cache[exist_file_index])
@@ -150,6 +151,13 @@ class ExifToolGUIData:
         self.cache = _cache
         self.cache_edited = _cache_edited
         self.cache_failed = _cache_failed
+
+    def refresh(self, file_index:int) -> None:
+        self.cache[file_index] = self.load(self.cache[file_index]['SourceFile'])
+
+    def reset(self, file_index:int) -> None:
+        self.cache_edited[file_index] = {}
+        self.cache_failed[file_index] = {}
 
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
         result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_utf8=True)
@@ -615,7 +623,7 @@ class ExifToolGUIData:
                     as_utc: bool = detatime_tag_def.get('as_utc', None)
                     if as_utc:
                         dt = dt.replace(tzinfo=timezone.utc)
-                else:
+                elif not tag_r.startswith(f"({datetime.__name__})"):
                     self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], f"{tag_r}: datetime tag is not defined")
 
                 if dt.tzinfo == None:
@@ -691,6 +699,9 @@ class ExifToolGUIData:
     '''################################################################
     IO and Log
     ################################################################'''
+
+    def execute(self, file:str, *params:str):
+        self.exiftool.execute_json(*params, file)
 
     def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_utf8: bool = False) -> dict[str, ]:
         result: dict[str,] = {'SourceFile': file}
@@ -819,7 +830,12 @@ class ExifToolGUIData:
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
 
-    
+    def rebuild(self, file_index:int):
+        commd:str = '-exif:all= -tagsfromfile @ -all:all -unsafe -charset filename=utf8'
+        params = commd.split(' ')
+        params.append(self.cache[file_index]['SourceFile'])
+        self.exiftool.execute(*params)
+        self.refresh(file_index)
 
 if __name__ == "__main__":
     # data:ExifToolGUIData = ExifToolGUIData.Instance
@@ -833,7 +849,7 @@ if __name__ == "__main__":
     # print(result)
 
     data: ExifToolGUIData = ExifToolGUIData.Instance
-    data.update()
+    data.reload()
     value = data.get(0, "?Timeline", editing=True)
     print(value)
 

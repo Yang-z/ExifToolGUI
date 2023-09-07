@@ -95,7 +95,8 @@
     "-n": "on",
     "-U": "on",
     "-P": "on",
-    "-overwrite_original": "on"
+    "-overwrite_original": "on",
+    "-m": "off"
   },
   "exiftoolgui_options": {
     "auto_save": false,
