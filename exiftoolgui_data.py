@@ -27,6 +27,28 @@ class ExifToolGUIData:
             cls._instance = cls()
         return cls._instance
 
+    '''################################################################
+    Cache
+    ################################################################'''
+
+    cache_pool: dict[str, dict[str, ]] = {}
+    cache_pool_edited: dict[str, dict[str, ]] = {}
+    cache_pool_failed: dict[str, dict[str, ]] = {}
+
+    @staticmethod
+    def Get_Metadata(cache: dict[str, dict[str, ]], file: str) -> dict[str, ]:
+        for _file in cache.keys():
+            if os.path.samefile(_file, file):
+                return cache[_file]
+
+        # placehoder
+        cache[file] = {}
+        return cache[file]
+
+    '''################################################################
+    Init
+    ################################################################'''
+
     def __init__(self) -> None:
         '''
         Notice:
@@ -109,6 +131,23 @@ class ExifToolGUIData:
     Load
     ################################################################'''
 
+    def reload(self):
+        self.cache.clear()
+        self.cache_edited.clear()
+        self.cache_failed.clear()
+
+        for file in self.settings.files:
+
+            metadata = ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool, file)
+            self.cache.append(metadata)
+            if len(metadata) == 0:
+                metadata['SourceFile'] = file
+
+            # print(self.cache[-1] is metadata)
+
+            self.cache_edited.append(ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool_edited, file))
+            self.cache_failed.append(ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool_failed, file))
+
     # def reload(self) -> None:
     #     self.cache.clear()
     #     self.cache_edited.clear()
@@ -121,45 +160,57 @@ class ExifToolGUIData:
     #         self.cache_edited.append({})
     #         self.cache_failed.append({})
 
-    def reload(self, cache:bool=True):
-        _cache: list[dict[str, ]] = []
-        _cache_edited: list[dict[str, ]] = []
-        _cache_failed: list[dict[str, ]] = []
+    # def reload(self, cache: bool = True):
+    #     _cache: list[dict[str, ]] = []
+    #     _cache_edited: list[dict[str, ]] = []
+    #     _cache_failed: list[dict[str, ]] = []
 
-        _files = self.settings.files
-        for _file_index in range(len(_files)):
-            _file = _files[_file_index]
+    #     _files = self.settings.files
+    #     for _file_index in range(len(_files)):
+    #         _file = _files[_file_index]
 
-            # find exist file cache
-            exist_file_index: int = None
-            if cache:
-                for file_index in range(len(self.cache)):
-                    file = self.cache[file_index]['SourceFile']
-                    if os.path.samefile(file, _file):
-                        exist_file_index = file_index
-                        break
+    #         # find exist file cache
+    #         exist_file_index: int = None
+    #         if cache:
+    #             for file_index in range(len(self.cache)):
+    #                 file = self.cache[file_index]['SourceFile']
+    #                 if os.path.samefile(file, _file):
+    #                     exist_file_index = file_index
+    #                     break
 
-            if exist_file_index != None:
-                _cache.append(self.cache[exist_file_index])
-                _cache_edited.append(self.cache_edited[exist_file_index])
-                _cache_failed.append(self.cache_failed[exist_file_index])
-            else:
-                _cache.append(self.load(_file))
-                _cache_edited.append({})
-                _cache_failed.append({})
+    #         if exist_file_index != None:
+    #             _cache.append(self.cache[exist_file_index])
+    #             _cache_edited.append(self.cache_edited[exist_file_index])
+    #             _cache_failed.append(self.cache_failed[exist_file_index])
+    #         else:
+    #             _cache.append(self.load(_file))
+    #             _cache_edited.append({})
+    #             _cache_failed.append({})
 
-        self.cache = _cache
-        self.cache_edited = _cache_edited
-        self.cache_failed = _cache_failed
+    #     self.cache = _cache
+    #     self.cache_edited = _cache_edited
+    #     self.cache_failed = _cache_failed
 
-    def refresh(self, file_index:int) -> None:
-        self.cache[file_index] = self.load(self.cache[file_index]['SourceFile'])
+    def refresh(self, file_index: int) -> None:
+        file = self.cache[file_index]['SourceFile']
+        metadata = self.load(file)
+        self.cache[file_index] = metadata
+        ExifToolGUIData.cache_pool[file] = metadata
 
-    def reset(self, file_index:int) -> None:
-        self.cache_edited[file_index] = {}
-        self.cache_failed[file_index] = {}
+    def reset(self, file_index: int) -> None:
+        self.cache_edited[file_index].clear()
+        self.cache_failed[file_index].clear()
+
+    def rebuild(self, file_index: int):
+        commd: str = '-exif:all= -tagsfromfile @ -all:all -unsafe -charset filename=utf8'
+        params = commd.split(' ')
+        file = self.cache[file_index]['SourceFile']
+        self.execute(file, params)
+        self.refresh(file_index)
 
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
+
+        # load from file
         result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_utf8=True)
 
         # handle ExifTool:Warning
@@ -294,7 +345,7 @@ class ExifToolGUIData:
             # get tags for checking
             result = self.load(
                 file_new,
-                list(unsaved[file_index].keys()) + ['ExifTool:Warning'],
+                list(unsaved[file_index].keys()) + ['ExifTool:Warning']
             )
 
             # update source_file
@@ -624,7 +675,11 @@ class ExifToolGUIData:
                     if as_utc:
                         dt = dt.replace(tzinfo=timezone.utc)
                 elif not tag_r.startswith(f"({datetime.__name__})"):
-                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], f"{tag_r}: datetime tag is not defined")
+                    self.log.append(
+                        "ExifToolGUI:Warnning:get_datetime",
+                        self.cache[file_index]['SourceFile'],
+                        f"{tag_r}: datetime tag is not defined"
+                    )
 
                 if dt.tzinfo == None:
                     # fix by user specified timezone
@@ -700,8 +755,9 @@ class ExifToolGUIData:
     IO and Log
     ################################################################'''
 
-    def execute(self, file:str, *params:str):
-        self.exiftool.execute_json(*params, file)
+    def execute(self, file: str, params: list):
+        params.append(file)
+        self.exiftool.execute(*params)
 
     def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_utf8: bool = False) -> dict[str, ]:
         result: dict[str,] = {'SourceFile': file}
@@ -830,12 +886,6 @@ class ExifToolGUIData:
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
 
-    def rebuild(self, file_index:int):
-        commd:str = '-exif:all= -tagsfromfile @ -all:all -unsafe -charset filename=utf8'
-        params = commd.split(' ')
-        params.append(self.cache[file_index]['SourceFile'])
-        self.exiftool.execute(*params)
-        self.refresh(file_index)
 
 if __name__ == "__main__":
     # data:ExifToolGUIData = ExifToolGUIData.Instance
