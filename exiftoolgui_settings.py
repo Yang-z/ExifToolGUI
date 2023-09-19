@@ -44,7 +44,8 @@ class ExifToolGUISettings:
         for top in self.dirs:
             for root, dirs, files in os.walk(top):
                 for file in files:
-                    file_path: str = os.path.join(root, file)
+                    file_path: str = os.path.join(root, file).replace('\\', '/')
+                    # file_path = os.path.normpath(file_path)
                     all_files.append(file_path)
                 break
         return all_files
@@ -142,4 +143,4 @@ class ExifToolGUISettings:
 if __name__ == "__main__":
     settings: ExifToolGUISettings = ExifToolGUISettings.Instance
 
-    print(settings.functions)
+    print(settings.files)

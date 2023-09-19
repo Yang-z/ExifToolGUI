@@ -36,14 +36,12 @@ class ExifToolGUIData:
     cache_pool_failed: dict[str, dict[str, ]] = {}
 
     @staticmethod
-    def Get_Metadata(cache: dict[str, dict[str, ]], file: str) -> dict[str, ]:
-        for _file in cache.keys():
-            if os.path.samefile(_file, file):
-                return cache[_file]
-
-        # placehoder
-        cache[file] = {}
-        return cache[file]
+    def Get_Metadata(cache_pool: dict[str, dict[str, ]], file: str) -> dict[str, ]:
+        metadata = cache_pool.get(file, None)
+        if metadata == None:
+            metadata = {}
+            cache_pool[file] = metadata
+        return metadata
 
     '''################################################################
     Init
@@ -137,59 +135,13 @@ class ExifToolGUIData:
         self.cache_failed.clear()
 
         for file in self.settings.files:
-
             metadata = ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool, file)
             self.cache.append(metadata)
             if len(metadata) == 0:
                 metadata['SourceFile'] = file
 
-            # print(self.cache[-1] is metadata)
-
             self.cache_edited.append(ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool_edited, file))
             self.cache_failed.append(ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool_failed, file))
-
-    # def reload(self) -> None:
-    #     self.cache.clear()
-    #     self.cache_edited.clear()
-    #     self.cache_failed.clear()
-
-    #     for file in self.settings.files:
-    #         self.cache.append(self.load(file))
-
-    #     for file_index in range(0, len(self.cache)):
-    #         self.cache_edited.append({})
-    #         self.cache_failed.append({})
-
-    # def reload(self, cache: bool = True):
-    #     _cache: list[dict[str, ]] = []
-    #     _cache_edited: list[dict[str, ]] = []
-    #     _cache_failed: list[dict[str, ]] = []
-
-    #     _files = self.settings.files
-    #     for _file_index in range(len(_files)):
-    #         _file = _files[_file_index]
-
-    #         # find exist file cache
-    #         exist_file_index: int = None
-    #         if cache:
-    #             for file_index in range(len(self.cache)):
-    #                 file = self.cache[file_index]['SourceFile']
-    #                 if os.path.samefile(file, _file):
-    #                     exist_file_index = file_index
-    #                     break
-
-    #         if exist_file_index != None:
-    #             _cache.append(self.cache[exist_file_index])
-    #             _cache_edited.append(self.cache_edited[exist_file_index])
-    #             _cache_failed.append(self.cache_failed[exist_file_index])
-    #         else:
-    #             _cache.append(self.load(_file))
-    #             _cache_edited.append({})
-    #             _cache_failed.append({})
-
-    #     self.cache = _cache
-    #     self.cache_edited = _cache_edited
-    #     self.cache_failed = _cache_failed
 
     def refresh(self, file_index: int) -> None:
         file = self.cache[file_index]['SourceFile']
@@ -760,10 +712,9 @@ class ExifToolGUIData:
         self.exiftool.execute(*params)
 
     def read_tags(self, file: str, tags: list[str], params: list[str], process_name, fix_non_utf8: bool = False) -> dict[str, ]:
-        result: dict[str,] = {'SourceFile': file}
-
+        result: dict[str,] = None
         try:
-            result.update(self.exiftool.get_tags(file, tags, params)[0])
+            result = self.exiftool.get_tags(file, tags, params)[0]
         except ExifToolExecuteError as e:
             self.log.append(f'ExifTool:Error:{type(e).__name__}:Read:{process_name}', file, e.stderr)
         except Exception as e:  # UnicodeEncodeError
@@ -772,7 +723,7 @@ class ExifToolGUIData:
         if fix_non_utf8:
             self.fix_non_utf8_values(file, result)
 
-        return result
+        return result if result else {'SourceFile': file}
 
     def write_tags(self, file: str, tags: dict[str, Any], params: list[str], process_name) -> bool:
         if not tags:

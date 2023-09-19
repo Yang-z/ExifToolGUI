@@ -184,8 +184,11 @@ class ExifToolGUI(QObject):
         list_dirs.addItems(self.settings.dirs)
         with QMutexLocker(ExifToolGUI.dataLocker):
             self.data.reload()
+            print("done:    data.reload()")
             self.reload_table_for_group()
+            print("done:    reload_table_for_group()")
             self.edit_table_for_group()
+            print("done:    edit_table_for_group()")
 
     def reload_table_for_group(self):
 
@@ -1143,10 +1146,7 @@ class GetPreviewTask(QRunnable):
 
         if cache:
             with QMutexLocker(GetPreviewTask.cache_preview_locker):
-                for file in GetPreviewTask.cache_preview.keys():
-                    if os.path.samefile(file, self.file_path):
-                        pixmap = GetPreviewTask.cache_preview.get(file, None)
-                        break
+                pixmap = GetPreviewTask.cache_preview.get(self.file_path, None)
             return pixmap
 
         # embedded
