@@ -1,8 +1,6 @@
 import sys
 from datetime import datetime, timezone
 
-import os
-
 # from PySide6 import QtCore
 from PySide6.QtCore import *  # QFile, QUrl
 from PySide6.QtUiTools import *  # QUiLoader
@@ -209,6 +207,8 @@ class ExifToolGUI(QObject):
 
         for file_index in range(0, file_count):
 
+            table.setRowHeight(file_index, 64)
+
             if len(self.data.cache[file_index]) <= 1:
                 GetDataTask(file_index, self)
 
@@ -226,10 +226,14 @@ class ExifToolGUI(QObject):
 
                 table.setItem(file_index, column, item)
 
-        table.resizeColumnsToContents()
-        table.resizeRowsToContents()
-        if table.columnWidth(0) > 300:
-            table.setColumnWidth(0, 300)
+        # table.resizeColumnsToContents()
+        # table.resizeRowsToContents()
+        # if table.columnWidth(0) > 300:
+        #     table.setColumnWidth(0, 300)
+
+        table.verticalHeader().setDefaultSectionSize(self.settings.preview_size)
+        table.horizontalHeader().setDefaultSectionSize(160)
+        table.setColumnWidth(0, 300)
 
         table.blockSignals(False)
         # ExifToolGUI.dataLocker.unlock()
@@ -331,16 +335,22 @@ class ExifToolGUI(QObject):
             layout.addWidget(tree)
             widget.setLayout(layout)
 
-    def reload_current_tree_for_single(self):
+    def reload_current_tree_for_single(self, ref: int = None):
+        current_item = self.table_for_group.currentItem()
+        if not current_item:
+            return
+
+        file_index: int = current_item.data(Qt.UserRole)['file_index']
+        if ref != None and ref != file_index:
+            return
+
         tab_wedget = self.tab_for_single
         title = tab_wedget.tabText(tab_wedget.currentIndex())
 
         cur_tab = tab_wedget.currentWidget()
         tree = cur_tab.findChild(QTreeWidget)
 
-        file_index: int = self.table_for_group.currentItem().data(Qt.UserRole)['file_index']
         strict = False
-
         if title == 'all':
             metadata_temp = self.data.cache[file_index]
             strict = True
@@ -1044,19 +1054,19 @@ class ExifToolGUI(QObject):
 
         self.save_exiftool_options()
 
-    #
+    # threading
 
     def on_metadataLoaded(self, file_index: int):
         self.reflash_table_for_group([file_index])
         self.edit_table_for_group([file_index])
-        # self.gui.reload_current_tree_for_single()
+        self.reload_current_tree_for_single(file_index)
 
     def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap):
 
         item.tableWidget().blockSignals(True)
 
         item.setData(Qt.DecorationRole, pixmap)
-        item.tableWidget().resizeRowToContents(item.row())
+        # item.tableWidget().resizeRowToContents(item.row())
         # item.tableWidget().resizeColumnToContents(item.column())
 
         item.tableWidget().blockSignals(False)
