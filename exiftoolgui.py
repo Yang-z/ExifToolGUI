@@ -20,11 +20,16 @@ class ExifToolGUI(QObject):
 
     dataLocker: QMutex = QMutex()
 
-    metadataLoaded = Signal(int)
-    previewLoaded = Signal(QTableWidgetItem, QPixmap)
+    metadataLoaded = Signal(int, int)
+    previewLoaded = Signal(QTableWidgetItem, QPixmap, int)
 
     def __init__(self) -> None:
         super().__init__()
+
+        '''
+        when reloading, let slots refuse to respond to expired signals
+        '''
+        self.threading_flag: int = 0
 
         self.app: QApplication = QApplication(sys.argv)
         # apply_stylesheet(self.app, theme='dark_teal.xml')
@@ -35,11 +40,13 @@ class ExifToolGUI(QObject):
 
         self.main_window: QMainWindow = self.load_main_window()
 
-        # # After any value in a table is modified, the ref would dead
-        # # "RuntimeError: Internal C++ object (PySide6.QtWidgets.QTableWidget) already deleted."
+        '''
+        After any value in a table is modified, the ref would dead
+        "RuntimeError: Internal C++ object (PySide6.QtWidgets.QTableWidget) already deleted."
+        It could be a bug of PySide6.
+        use @property to get dynamically
+        '''
         # self.table_for_group:QTableWidget = self.main_window.findChild(QTableWidget, 'table_for_group')
-        # ...
-        # # use @property to get dynamically
 
         self.adjust_main_window()
 
@@ -47,9 +54,9 @@ class ExifToolGUI(QObject):
         self.load_comboBox_functions()
         self.init_exiftool_options()
 
-        self.add_event_handlers()
-
         self.main_window.show()
+
+        self.add_event_handlers()
 
         self.reload_list_for_dirs()  # reload_table_for_group()
 
@@ -177,16 +184,34 @@ class ExifToolGUI(QObject):
         self.table_for_group.horizontalScrollBar().setSingleStep(10)
 
     def reload_list_for_dirs(self):
+
+        self.cleanup_threading()
+
+        '''
+        Force to process all remaining events before reloading, 
+        otherwise there is a small chance to cause crash.
+        Since it gives no crash report, it's really a nightmare for debugging.
+        '''
+        QCoreApplication.processEvents()
+
+        '''
+        lock data IO
+        '''
+        QMutexLocker(ExifToolGUI.dataLocker)
+
         list_dirs: QListWidget = self.list_dirs
+        print("done:    list_dirs=...")
         list_dirs.clear()
+        print("done:    list_dirs.clear()")
         list_dirs.addItems(self.settings.dirs)
-        with QMutexLocker(ExifToolGUI.dataLocker):
-            self.data.reload()
-            print("done:    data.reload()")
-            self.reload_table_for_group()
-            print("done:    reload_table_for_group()")
-            self.edit_table_for_group()
-            print("done:    edit_table_for_group()")
+        print("done:    list_dirs.addItems(...)")
+
+        self.data.reload()
+        print("done:    data.reload()")
+        self.reload_table_for_group()
+        print("done:    reload_table_for_group()")
+        self.edit_table_for_group()
+        print("done:    edit_table_for_group()")
 
     def reload_table_for_group(self):
 
@@ -194,6 +219,7 @@ class ExifToolGUI(QObject):
 
         # ExifToolGUI.dataLocker.lock()
         table.blockSignals(True)
+        # table.setRowCount(0)
         table.clear()
 
         tags = self.settings.tags_for_group
@@ -210,7 +236,7 @@ class ExifToolGUI(QObject):
             table.setRowHeight(file_index, 64)
 
             if len(self.data.cache[file_index]) <= 1:
-                GetDataTask(file_index, self)
+                GetDataTask(self.threading_flag, file_index, self)
 
             for column in range(0, tags_count):
                 tag = tags[column]
@@ -222,7 +248,7 @@ class ExifToolGUI(QObject):
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    GetPreviewTask(item, value, self.settings.preview_size, self.settings.preview_precision)
+                    GetPreviewTask(self.threading_flag, item, value, self.settings.preview_size, self.settings.preview_precision)
 
                 table.setItem(file_index, column, item)
 
@@ -238,7 +264,7 @@ class ExifToolGUI(QObject):
         table.blockSignals(False)
         # ExifToolGUI.dataLocker.unlock()
 
-    def reflash_table_for_group(self, file_indexs: list[int] = None):
+    def set_table_for_group(self, file_indexs: list[int] = None):
         table: QTableWidget = self.table_for_group
 
         table.blockSignals(True)
@@ -839,7 +865,7 @@ class ExifToolGUI(QObject):
         self.metadataLoaded.connect(self.on_metadataLoaded)
         self.previewLoaded.connect(self.on_previewLoaded)
 
-        self.app.aboutToQuit.connect(self.on_aboutToQuit)
+        self.app.aboutToQuit.connect(self.cleanup_threading)
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
@@ -847,7 +873,6 @@ class ExifToolGUI(QObject):
             return
         self.settings.add_dir(dir)
         self.reload_list_for_dirs()
-        # print(dir)
 
     def on_clicked__button_remove_dir(self, checked=False):
         list_dirs_curr = self.list_dirs.currentItem()
@@ -868,7 +893,7 @@ class ExifToolGUI(QObject):
         for file_index in file_indexes:
             with QMutexLocker(ExifToolGUI.dataLocker):
                 self.data.reset(file_index)
-        self.reflash_table_for_group(file_indexes)
+        self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes)
         self.reload_current_tree_for_single()
 
@@ -877,7 +902,7 @@ class ExifToolGUI(QObject):
         for file_index in file_indexes:
             with QMutexLocker(ExifToolGUI.dataLocker):
                 self.data.refresh(file_index)
-        self.reflash_table_for_group(file_indexes)
+        self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes)
         self.reload_current_tree_for_single()
 
@@ -885,7 +910,7 @@ class ExifToolGUI(QObject):
         file_indexes: list[int] = self.get_selected_file_indexes()
         for file_index in file_indexes:
             self.data.rebuild(file_index)
-        self.reflash_table_for_group(file_indexes)
+        self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes)
         self.edit_current_tree_for_single()
 
@@ -1056,43 +1081,66 @@ class ExifToolGUI(QObject):
 
     # threading
 
-    def on_metadataLoaded(self, file_index: int):
-        self.reflash_table_for_group([file_index])
+    def on_metadataLoaded(self, file_index: int, flag: int):
+
+        if flag != self.threading_flag:
+            print("threading flag expired:  on_metadataLoaded")
+            return
+
+        self.set_table_for_group([file_index])
         self.edit_table_for_group([file_index])
         self.reload_current_tree_for_single(file_index)
 
-    def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap):
+    def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap, flag: int):
+
+        if flag != self.threading_flag:
+            print("threading flag expired:  on_previewLoaded")
+            return
+
+        if not item or not pixmap:
+            return
 
         item.tableWidget().blockSignals(True)
-
-        item.setData(Qt.DecorationRole, pixmap)
-        # item.tableWidget().resizeRowToContents(item.row())
-        # item.tableWidget().resizeColumnToContents(item.column())
+        if pixmap:
+            item.setData(Qt.DecorationRole, pixmap)
+            # item.tableWidget().resizeRowToContents(item.row())
+            # item.tableWidget().resizeColumnToContents(item.column())
+        else:
+            print("QPixmap Broken!!!")
 
         item.tableWidget().blockSignals(False)
 
-    def on_aboutToQuit(self):
+    def cleanup_threading(self):
+        self.threading_flag += 1
+        print(self.threading_flag)
+
         GetDataTask.threadPool.clear()
         GetPreviewTask.threadPool.clear()
+        print("done:    threadpool.clear()")
 
         GetDataTask.threadPool.waitForDone()
         GetPreviewTask.threadPool.waitForDone()
+        print("done:    threadpool.waitForDone()")
 
-        GetDataTask.threadPool.deleteLater()
-        GetPreviewTask.threadPool.deleteLater()
+        # GetDataTask.threadPool.deleteLater()
+        # GetPreviewTask.threadPool.deleteLater()
+        # print("done:  threadpool.deleteLater()")
 
 
 '''################################################################
-Additional
+Threading
 ################################################################'''
 
 
 class GetDataTask(QRunnable):
 
     threadPool = QThreadPool()
+    # threadPool.setMaxThreadCount(1)
 
-    def __init__(self, file_index: int, gui: ExifToolGUI) -> None:
+    def __init__(self, flag: int, file_index: int, gui: ExifToolGUI) -> None:
         super().__init__()
+        self.flag = flag
+
         self.file_index: int = file_index
         self.gui: ExifToolGUI = gui
 
@@ -1100,24 +1148,32 @@ class GetDataTask(QRunnable):
 
     def run(self):
 
+        if self.flag != self.gui.threading_flag:
+            print("threading flag expired:  GetDataTask.run()")
+            return
+
         with QMutexLocker(ExifToolGUI.dataLocker):
             self.gui.data.refresh(self.file_index)
 
-        self.gui.metadataLoaded.emit(self.file_index)
+        self.gui.metadataLoaded.emit(self.file_index, self.flag)
 
 
 class GetPreviewTask(QRunnable):
 
     cache_preview: dict[str, QPixmap] = {}
+    cache_locker: QMutex = QMutex()
 
-    cache_preview_locker: QMutex = QMutex()
     signal_locker: QMutex = QMutex()
 
     threadPool = QThreadPool()
-    # threadPool.setMaxThreadCount(5)
+    # threadPool.setMaxThreadCount(1)
 
-    def __init__(self, item: QTableWidgetItem, file_path: str, size: int, precision: float = 1.0, load_embedded: bool = False) -> None:
+    QImageReader.setAllocationLimit(0)
+
+    def __init__(self, flag: int, item: QTableWidgetItem, file_path: str, size: int, precision: float = 1.0, load_embedded: bool = False) -> None:
         super().__init__()
+        self.flag = flag
+
         self.item: QTableWidgetItem = item
         self.file_path: str = file_path
         self.size: int = size
@@ -1144,18 +1200,23 @@ class GetPreviewTask(QRunnable):
 
     def set_preview(self, pixmap: QPixmap):
         if pixmap:
+
             # delay to avoid freezing UI
             with QMutexLocker(GetPreviewTask.signal_locker):
                 QThread.msleep(50)
 
-            self.gui.previewLoaded.emit(self.item, pixmap)
+            self.gui.previewLoaded.emit(self.item, pixmap, self.flag)
 
     def get_preview(self, cache: bool = True, fast: bool = False) -> QPixmap:
+
+        if self.flag != self.gui.threading_flag:
+            print("threading flag expired:  GetPreviewTask.get_preview(...)")
+            return
 
         pixmap: QPixmap = None
 
         if cache:
-            with QMutexLocker(GetPreviewTask.cache_preview_locker):
+            with QMutexLocker(GetPreviewTask.cache_locker):
                 pixmap = GetPreviewTask.cache_preview.get(self.file_path, None)
             return pixmap
 
@@ -1169,7 +1230,7 @@ class GetPreviewTask(QRunnable):
 
         # image
         if pixmap == None and fast == False:
-            QImageReader.setAllocationLimit(0)
+            # QImageReader.setAllocationLimit(0)
             image_reader = QImageReader(self.file_path)
             image_reader.setAutoTransform(True)
             if image_reader.canRead():
@@ -1188,8 +1249,8 @@ class GetPreviewTask(QRunnable):
                     pixmap = QPixmap.fromImage(image)
             cap.release()
 
-        # other
-        if pixmap == None:
+        # icon
+        if pixmap == None and fast == True:
             icon: QIcon = QFileIconProvider().icon(QFileInfo(self.file_path))
             pixmap = icon.pixmap(icon.availableSizes()[0])
 
@@ -1198,8 +1259,9 @@ class GetPreviewTask(QRunnable):
             pixmap.setDevicePixelRatio(self.pixel_ratio * precision)
             pixmap = pixmap.scaledToHeight(self.size * precision)
 
-            with QMutexLocker(GetPreviewTask.cache_preview_locker):
-                GetPreviewTask.cache_preview[self.file_path] = pixmap
+            if fast == False:
+                with QMutexLocker(GetPreviewTask.cache_locker):
+                    GetPreviewTask.cache_preview[self.file_path] = pixmap
 
             return pixmap
 
