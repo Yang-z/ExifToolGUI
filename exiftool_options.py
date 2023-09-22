@@ -3,6 +3,7 @@ import json
 
 import re
 
+from exiftoolgui_settings import ExifToolGUISettings
 
 class ExifToolOptions:
     _instance: 'ExifToolOptions' = None
@@ -40,7 +41,7 @@ class ExifToolOptions:
     )
 
     def __init__(self) -> None:
-        self.source_file = 'exiftool_options.json'
+        self.source_file = ExifToolGUISettings.Instance.config_exiftool_options
         self.raw: dict[str,] = None
         with open(self.source_file, mode="r", encoding='utf-8') as f:
             self.raw = json.load(f, object_pairs_hook=OrderedDict)

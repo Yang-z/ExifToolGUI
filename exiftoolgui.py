@@ -145,7 +145,7 @@ class ExifToolGUI(QObject):
         return self.main_window.findChild(QTextBrowser, 'exiftool_options_editor_description')
 
     def load_main_window(self) -> QMainWindow:
-        ui_file = QFile(self.settings.assets_ui)
+        ui_file = QFile(self.settings.config_ui)
         loader = QUiLoader()
         main_window = loader.load(ui_file)
         ui_file.close()

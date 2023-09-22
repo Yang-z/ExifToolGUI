@@ -1,6 +1,7 @@
 {
-  "assets": {
-    "ui": "exiftoolgui_mainwindow.ui"
+  "config": {
+    "ui": "./config/exiftoolgui_mainwindow.ui",
+    "exiftool_options": "./config/exiftool_options.json"
   },
   "dirs": [],
   "tags_for_group": [

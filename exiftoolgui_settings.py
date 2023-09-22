@@ -15,7 +15,7 @@ class ExifToolGUISettings:
         return cls._instance
 
     def __init__(self) -> None:
-        self.source_file = 'exiftoolgui_settings.json'
+        self.source_file = './config/exiftoolgui_settings.json'
         self.raw: dict = None
         self.load()
 
@@ -23,8 +23,12 @@ class ExifToolGUISettings:
         return self.raw[key]
 
     @property
-    def assets_ui(self) -> str:
-        return self.raw['assets']['ui']
+    def config_ui(self) -> str:
+        return self.raw['config']['ui']
+    
+    @property
+    def config_exiftool_options(self) -> str:
+        return self.raw['config']['exiftool_options']
 
     @property
     def dirs(self) -> list:
