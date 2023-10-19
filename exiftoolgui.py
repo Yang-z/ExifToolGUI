@@ -210,8 +210,8 @@ class ExifToolGUI(QObject):
         print("done:    data.reload()")
         self.reload_table_for_group()
         print("done:    reload_table_for_group()")
-        self.edit_table_for_group()
-        print("done:    edit_table_for_group()")
+        self.reload_current_tree_for_single()  # nessary
+        print("done:    reload_current_tree_for_single()")
 
     def reload_table_for_group(self):
 
@@ -240,7 +240,13 @@ class ExifToolGUI(QObject):
 
             for column in range(0, tags_count):
                 tag = tags[column]
-                value = self.data.get(file_index, tag, default='')
+
+                # value = self.data.get(file_index, tag, default='')
+                # delay value acquisition until the editing phase
+                value = ""
+                if tag == 'SourceFile':
+                    value = self.data.get(file_index, tag, default='')
+
                 item = QTableWidgetItem(str(value))
 
                 item.setData(Qt.UserRole, {"file_index": file_index, "tag": tag, "gui": self})  # mark
@@ -264,26 +270,29 @@ class ExifToolGUI(QObject):
         table.blockSignals(False)
         # ExifToolGUI.dataLocker.unlock()
 
-    def set_table_for_group(self, file_indexs: list[int] = None):
-        table: QTableWidget = self.table_for_group
+        # edit
+        self.edit_table_for_group(initial=True)
 
-        table.blockSignals(True)
+    # def set_table_for_group(self, file_indexs: list[int] = None):
+    #     table: QTableWidget = self.table_for_group
 
-        for row in range(0, table.rowCount()):
-            for column in range(0, table.columnCount()):
-                item = table.item(row, column)
-                user_data: dict[str,] = item.data(Qt.UserRole)
-                file_index: int = user_data['file_index']
+    #     table.blockSignals(True)
 
-                # None means all
-                if file_indexs != None and file_index not in file_indexs:
-                    break
+    #     for row in range(0, table.rowCount()):
+    #         for column in range(0, table.columnCount()):
+    #             item = table.item(row, column)
+    #             user_data: dict[str,] = item.data(Qt.UserRole)
+    #             file_index: int = user_data['file_index']
 
-                tag: str = user_data['tag']
-                value = self.data.get(file_index, tag, default='')
-                item.setText(value)
+    #             # None means all
+    #             if file_indexs != None and file_index not in file_indexs:
+    #                 break
 
-        table.blockSignals(False)
+    #             tag: str = user_data['tag']
+    #             value = self.data.get(file_index, tag, default='')
+    #             item.setText(value)
+
+    #     table.blockSignals(False)
 
     def sort_table_for_group(self, column):
         table = self.table_for_group
@@ -363,31 +372,35 @@ class ExifToolGUI(QObject):
 
     def reload_current_tree_for_single(self, ref: int = None):
         current_item = self.table_for_group.currentItem()
+
+        tab_wedget = self.tab_for_single
+        cur_tab = tab_wedget.currentWidget()
+        tree: QTreeWidget = cur_tab.findChild(QTreeWidget)
+
         if not current_item:
+            tree.clear()
             return
 
         file_index: int = current_item.data(Qt.UserRole)['file_index']
         if ref != None and ref != file_index:
             return
 
-        tab_wedget = self.tab_for_single
         title = tab_wedget.tabText(tab_wedget.currentIndex())
 
-        cur_tab = tab_wedget.currentWidget()
-        tree = cur_tab.findChild(QTreeWidget)
-
-        strict = False
         if title == 'all':
             metadata_temp = self.data.cache[file_index]
-            strict = True
         else:
             metadata_temp: dict[str,] = {}
             for tag in self.settings.tags_for_single[title]:
-                value = self.data.get(file_index, tag, default='')
+
+                # value = self.data.get(file_index, tag, default='')
+                # delay value acquisition until the editing phase
+                value = ""
+
                 metadata_temp[tag] = value
 
         self.reload_tree_for_single(tree, metadata_temp)
-        self.edit_tree_for_single(tree, strict)
+        self.edit_current_tree_for_single(initial=True)
 
     def reload_tree_for_single(self, tree: QTreeWidget, metadata: dict[str, ]):
         tree.blockSignals(True)
@@ -713,13 +726,9 @@ class ExifToolGUI(QObject):
                 file_indexes.append(file_index)
         return file_indexes
 
-    def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False):
+    def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False, initial: bool = False):
         value_saved, value_edited, status = self.data.get(file_index, tag, default="", strict=strict, editing=True)
         value_saved = str(value_saved)
-
-        # value_saved = str(ExifToolGUIData.Get(self.data.cache[file_index], tag, "", strict))
-        # value_edited = ExifToolGUIData.Get(self.data.cache_edited[file_index], tag, None)
-        # value_failed = ExifToolGUIData.Get(self.data.cache_failed[file_index], tag, None)
 
         colour = None
         show_value = None
@@ -736,12 +745,12 @@ class ExifToolGUI(QObject):
                 colour = Qt.yellow
                 show_value = value_edited
         else:
-            if value != value_saved:
+            if value != value_saved and not initial:
                 colour = Qt.darkGreen
-                show_value = value_saved
+            show_value = value_saved
         return show_value, colour
 
-    def edit_table_for_group(self, file_indexs: list[int] = None):
+    def edit_table_for_group(self, file_indexs: list[int] = None, initial: bool = False):
         table = self.table_for_group
         table.blockSignals(True)
 
@@ -758,8 +767,8 @@ class ExifToolGUI(QObject):
                 tag: str = user_data['tag']
                 value = item.text()
 
-                show_value, colour = self.edit_tag(file_index, tag, value)
-                if show_value != None and show_value != value:
+                show_value, colour = self.edit_tag(file_index, tag, value, initial=initial)
+                if show_value != value:
                     item.setText(show_value)
                 if colour:
                     item.setBackground(QBrush(colour))
@@ -768,14 +777,14 @@ class ExifToolGUI(QObject):
 
         table.blockSignals(False)
 
-    def edit_current_tree_for_single(self):
+    def edit_current_tree_for_single(self, initial: bool = False):
         tab_wedget = self.tab_for_single
         title = tab_wedget.tabText(tab_wedget.currentIndex())
         tree = tab_wedget.currentWidget().findChild(QTreeWidget)
         strict = (title == 'all')
-        self.edit_tree_for_single(tree, strict)
+        self.edit_tree_for_single(tree, strict, initial=initial)
 
-    def edit_tree_for_single(self, tree: QTreeWidget, strict: bool = False):
+    def edit_tree_for_single(self, tree: QTreeWidget, strict: bool = False, initial: bool = False):
         currentTableItem: QTableWidgetItem = self.table_for_group.currentItem()
         if not currentTableItem:
             return
@@ -790,8 +799,8 @@ class ExifToolGUI(QObject):
                 tag: str = item.data(0, Qt.UserRole)
                 value = item.text(1)
 
-                show_value, colour = self.edit_tag(file_index, tag, value, strict)
-                if show_value != None and show_value != value:
+                show_value, colour = self.edit_tag(file_index, tag, value, strict, initial=initial)
+                if show_value != value:
                     item.setText(1, show_value)
                 if colour:
                     item.setBackground(1, QBrush(colour))
@@ -886,33 +895,33 @@ class ExifToolGUI(QObject):
         with QMutexLocker(ExifToolGUI.dataLocker):
             self.data.save()
         self.edit_table_for_group()
-        self.edit_current_tree_for_single()
+        self.edit_current_tree_for_single()  # if new tag added?
 
     def on_clicked__button_reset(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
         for file_index in file_indexes:
             with QMutexLocker(ExifToolGUI.dataLocker):
                 self.data.reset(file_index)
-        self.set_table_for_group(file_indexes)
-        self.edit_table_for_group(file_indexes)
-        self.reload_current_tree_for_single()
+        # self.set_table_for_group(file_indexes)
+        self.edit_table_for_group(file_indexes, initial=True)
+        self.edit_current_tree_for_single(initial=True)  # enough, no reload needed
 
     def on_clicked__button_refresh(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
         for file_index in file_indexes:
             with QMutexLocker(ExifToolGUI.dataLocker):
                 self.data.refresh(file_index)
-        self.set_table_for_group(file_indexes)
-        self.edit_table_for_group(file_indexes)
-        self.reload_current_tree_for_single()
+        # self.set_table_for_group(file_indexes)
+        self.edit_table_for_group(file_indexes, initial=True)
+        self.reload_current_tree_for_single()  # if current tab is not 'All'?
 
     def on_clicked__button_rebuild(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
         for file_index in file_indexes:
             self.data.rebuild(file_index)
-        self.set_table_for_group(file_indexes)
+        # self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes)
-        self.edit_current_tree_for_single()
+        self.edit_current_tree_for_single()  # ? relect tags to be deleted
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):
         # print(f"{current.row()}, {current.column()}")
@@ -922,7 +931,7 @@ class ExifToolGUI(QObject):
             (previous != None and previous.row() == current.row())
         ):
             return
-        self.reload_current_tree_for_single()
+        self.reload_current_tree_for_single()  # nessary
 
     def on_item_changed__table_for_group(self, item: QTableWidgetItem):
         print(f"on_item_changed: {item.row(), item.column()}")
@@ -936,12 +945,12 @@ class ExifToolGUI(QObject):
 
         self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
         self.edit_table_for_group([file_index])
-        self.edit_current_tree_for_single()
+        self.edit_current_tree_for_single()  # if current tab is 'All'?
 
     def on_current_changed__tab_for_single(self, index):
         if self.table_for_group.currentItem() == None:
             return
-        self.reload_current_tree_for_single()
+        self.reload_current_tree_for_single()  # nessary
 
     def on_item_double_clicked__tree_for_single(self, item: QTreeWidgetItem, clumn: int):
         if clumn == 1 and item.childCount() == 0 and not item.text(1).startswith('(Binary data'):
@@ -963,8 +972,7 @@ class ExifToolGUI(QObject):
 
         self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
         self.edit_table_for_group([file_index])
-        # self.edit_tree_for_single(item.treeWidget())
-        self.edit_current_tree_for_single()
+        self.edit_current_tree_for_single()  # enough, no reload needed
 
     def on_currentIndexChanged__comboBox_functions(self, index):
         self.reload_groupBox_parameters()
@@ -977,7 +985,7 @@ class ExifToolGUI(QObject):
 
         ExifToolGUIFuncs.Exec(func, args)
         self.edit_table_for_group(args['file_indexes'])
-        self.edit_current_tree_for_single()
+        self.edit_current_tree_for_single()  # if func add new tag(s) and current tab is 'All'?
 
     # memu_exiftool
 
@@ -1087,9 +1095,9 @@ class ExifToolGUI(QObject):
             print("threading flag expired:  on_metadataLoaded")
             return
 
-        self.set_table_for_group([file_index])
-        self.edit_table_for_group([file_index])
-        self.reload_current_tree_for_single(file_index)
+        # self.set_table_for_group([file_index])
+        self.edit_table_for_group([file_index], initial=True)
+        self.reload_current_tree_for_single(file_index)  # if current tab is not 'All'?
 
     def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap, flag: int):
 
