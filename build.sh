@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run PyInstaller command
-pyinstaller --onefile --noconsole exiftoolgui.py
+pyinstaller --onefile --noconsole --strip exiftoolgui.py
 cp -r config/ dist/
 
 # Wait for user input to view the output (optional)
