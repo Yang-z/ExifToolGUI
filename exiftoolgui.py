@@ -210,7 +210,7 @@ class ExifToolGUI(QObject):
         print("done:    data.reload()")
         self.reload_table_for_group()
         print("done:    reload_table_for_group()")
-        self.reload_current_tree_for_single()  # nessary
+        self.reload_current_tree_for_single(initial=True)  # nessary
         print("done:    reload_current_tree_for_single()")
 
     def reload_table_for_group(self):
@@ -370,7 +370,7 @@ class ExifToolGUI(QObject):
             layout.addWidget(tree)
             widget.setLayout(layout)
 
-    def reload_current_tree_for_single(self, ref: int = None):
+    def reload_current_tree_for_single(self, ref: int = None,  initial: bool = True):
         current_item = self.table_for_group.currentItem()
 
         tab_wedget = self.tab_for_single
@@ -387,20 +387,30 @@ class ExifToolGUI(QObject):
 
         title = tab_wedget.tabText(tab_wedget.currentIndex())
 
+        metadata_temp: dict[str,] = {}
+        
         if title == 'all':
-            metadata_temp = self.data.cache[file_index]
+            tags = self.data.cache[file_index].keys()
         else:
-            metadata_temp: dict[str,] = {}
-            for tag in self.settings.tags_for_single[title]:
+            tags = self.settings.tags_for_single[title]
 
-                # value = self.data.get(file_index, tag, default='')
-                # delay value acquisition until the editing phase
-                value = ""
+        for tag in tags:
+            # delay value acquisition until the editing phase if initialised
+            metadata_temp[tag] = ""
 
-                metadata_temp[tag] = value
+        # if not initial, restore old tags and values
+        if not initial:
+            it = QTreeWidgetItemIterator(tree)
+            while it.value():
+                item = it.value()
+                if item.childCount() == 0:
+                    old_tag = item.data(0, Qt.UserRole)
+                    old_value = item.text(1)
+                    metadata_temp[old_tag] = old_value
+                it += 1
 
         self.reload_tree_for_single(tree, metadata_temp)
-        self.edit_current_tree_for_single(initial=True)
+        self.edit_current_tree_for_single(initial=initial)
 
     def reload_tree_for_single(self, tree: QTreeWidget, metadata: dict[str, ]):
         tree.blockSignals(True)
@@ -894,8 +904,8 @@ class ExifToolGUI(QObject):
     def on_clicked__button_save(self, checked=False):
         with QMutexLocker(ExifToolGUI.dataLocker):
             self.data.save()
-        self.edit_table_for_group()
-        self.edit_current_tree_for_single()  # if new tag added?
+        self.edit_table_for_group(initial=False)
+        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_clicked__button_reset(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
@@ -912,16 +922,16 @@ class ExifToolGUI(QObject):
             with QMutexLocker(ExifToolGUI.dataLocker):
                 self.data.refresh(file_index)
         # self.set_table_for_group(file_indexes)
-        self.edit_table_for_group(file_indexes, initial=True)
-        self.reload_current_tree_for_single()  # if current tab is not 'All'?
+        self.edit_table_for_group(file_indexes, initial=False)
+        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_clicked__button_rebuild(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
         for file_index in file_indexes:
             self.data.rebuild(file_index)
         # self.set_table_for_group(file_indexes)
-        self.edit_table_for_group(file_indexes)
-        self.edit_current_tree_for_single()  # ? relect tags to be deleted
+        self.edit_table_for_group(file_indexes,initial=False)
+        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):
         # print(f"{current.row()}, {current.column()}")
@@ -931,7 +941,7 @@ class ExifToolGUI(QObject):
             (previous != None and previous.row() == current.row())
         ):
             return
-        self.reload_current_tree_for_single()  # nessary
+        self.reload_current_tree_for_single(initial=True)  # nessary
 
     def on_item_changed__table_for_group(self, item: QTableWidgetItem):
         print(f"on_item_changed: {item.row(), item.column()}")
@@ -944,13 +954,13 @@ class ExifToolGUI(QObject):
         value = item.text()
 
         self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
-        self.edit_table_for_group([file_index])
-        self.edit_current_tree_for_single()  # if current tab is 'All'?
+        self.edit_table_for_group([file_index], initial=False)
+        self.edit_current_tree_for_single(initial=False)  # enough, if current tab is 'All' new added tag will not be reflected until saved
 
     def on_current_changed__tab_for_single(self, index):
         if self.table_for_group.currentItem() == None:
             return
-        self.reload_current_tree_for_single()  # nessary
+        self.reload_current_tree_for_single(initial=True)  # nessary
 
     def on_item_double_clicked__tree_for_single(self, item: QTreeWidgetItem, clumn: int):
         if clumn == 1 and item.childCount() == 0 and not item.text(1).startswith('(Binary data'):
@@ -971,8 +981,8 @@ class ExifToolGUI(QObject):
         tag = item.data(0, Qt.UserRole)
 
         self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
-        self.edit_table_for_group([file_index])
-        self.edit_current_tree_for_single()  # enough, no reload needed
+        self.edit_table_for_group([file_index], initial=False)
+        self.edit_current_tree_for_single(initial=False)  # enough, no reload needed, not possible to add new tag here
 
     def on_currentIndexChanged__comboBox_functions(self, index):
         self.reload_groupBox_parameters()
@@ -984,8 +994,8 @@ class ExifToolGUI(QObject):
         from exiftoolgui_functions import ExifToolGUIFuncs
 
         ExifToolGUIFuncs.Exec(func, args)
-        self.edit_table_for_group(args['file_indexes'])
-        self.edit_current_tree_for_single()  # if func add new tag(s) and current tab is 'All'?
+        self.edit_table_for_group(args['file_indexes'], initial=False)
+        self.edit_current_tree_for_single(initial=False)  # enough, if current tab is 'All' new added tag will not be reflected until saved
 
     # memu_exiftool
 
@@ -1097,7 +1107,7 @@ class ExifToolGUI(QObject):
 
         # self.set_table_for_group([file_index])
         self.edit_table_for_group([file_index], initial=True)
-        self.reload_current_tree_for_single(file_index)  # if current tab is not 'All'?
+        self.reload_current_tree_for_single(ref=file_index, initial=True)  # nessary, but bring extra cost when title is not 'All'
 
     def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap, flag: int):
 
