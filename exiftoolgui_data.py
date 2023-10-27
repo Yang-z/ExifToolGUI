@@ -1,4 +1,5 @@
 from typing import Union, Any
+import json
 
 import base64
 import re
@@ -94,6 +95,19 @@ class ExifToolGUIData:
         '''
         self.exiftool: ExifToolHelper = ExifToolHelper(common_args=None)
         self.exiftool.encoding = 'utf-8'
+        # '-charset\nfilename=utf8' is staged in the settings file.
+
+        '''
+        As ExifTool doc states, ExifTool quotes JSON values only if they don't look like numbers
+        (regardless of the original storage format or the relevant metadata specification).
+        That indicates if a value looks like a float number, ExifTool will not quote it. And all zero(s) 
+        at the end will be lost when returned by python's json parser.
+        To avoid lossing zero(s) at the end of number-like strings, we parse float as string.
+        see:
+            [https://github.com/sylikc/pyexiftool/issues/76]
+            [https://sylikc.github.io/pyexiftool/faq.html#pyexiftool-json-turns-some-text-fields-into-numbers]
+        '''
+        self.exiftool.set_json_loads(json.loads, parse_float=str, parse_int=str)
 
         '''
         Notice:
@@ -720,7 +734,7 @@ class ExifToolGUIData:
         except Exception as e:  # UnicodeEncodeError
             self.log.append(f'ExifToolGUI:Error:{type(e).__name__}:Read:{process_name}', file, str(e))
 
-        if fix_non_utf8:
+        if fix_non_utf8 and result:
             self.fix_non_utf8_values(file, result)
 
         return result if result else {'SourceFile': file}
