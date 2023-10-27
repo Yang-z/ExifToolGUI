@@ -3,14 +3,14 @@ import json
 
 import re
 
-from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_configs import ExifToolGUIConfigs
 
-class ExifToolOptions:
-    _instance: 'ExifToolOptions' = None
+class ExifToolOptionDefs:
+    _instance: 'ExifToolOptionDefs' = None
 
     @classmethod
     @property
-    def Instance(cls) -> 'ExifToolOptions':
+    def Instance(cls) -> 'ExifToolOptionDefs':
         if cls._instance == None:
             cls._instance = cls()
         return cls._instance
@@ -41,7 +41,7 @@ class ExifToolOptions:
     )
 
     def __init__(self) -> None:
-        self.source_file = ExifToolGUISettings.Instance.config_exiftool_options
+        self.source_file = ExifToolGUIConfigs.Instance.file_exiftool_option_defs
         self.raw: dict[str,] = None
         with open(self.source_file, mode="r", encoding='utf-8') as f:
             self.raw = json.load(f, object_pairs_hook=OrderedDict)
@@ -94,7 +94,7 @@ class ExifToolOptions:
 
 
 if __name__ == "__main__":
-    o = ExifToolOptions.Instance
+    o = ExifToolOptionDefs.Instance
 
     # main = o.get_option_main("--")
     # print(main)

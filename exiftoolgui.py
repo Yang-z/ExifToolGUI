@@ -11,9 +11,9 @@ from PySide6.QtGui import *  # QImage, QPixmap
 
 # from qt_material import apply_stylesheet
 
-from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_configs import ExifToolGUIConfigs
 from exiftoolgui_data import ExifToolGUIData
-from exiftool_options import ExifToolOptions
+from exiftool_option_defs import ExifToolOptionDefs
 
 
 class ExifToolGUI(QObject):
@@ -34,9 +34,9 @@ class ExifToolGUI(QObject):
         self.app: QApplication = QApplication(sys.argv)
         # apply_stylesheet(self.app, theme='dark_teal.xml')
 
-        self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+        self.configs: ExifToolGUIConfigs = ExifToolGUIConfigs.Instance
         self.data: ExifToolGUIData = ExifToolGUIData.Instance
-        self.exiftool_option_defs = ExifToolOptions.Instance
+        self.exiftool_option_defs = ExifToolOptionDefs.Instance
 
         self.main_window: QMainWindow = self.load_main_window()
 
@@ -145,7 +145,7 @@ class ExifToolGUI(QObject):
         return self.main_window.findChild(QTextBrowser, 'exiftool_options_editor_description')
 
     def load_main_window(self) -> QMainWindow:
-        ui_file = QFile(self.settings.config_ui)
+        ui_file = QFile(self.configs.file_ui)
         loader = QUiLoader()
         main_window = loader.load(ui_file)
         ui_file.close()
@@ -203,7 +203,7 @@ class ExifToolGUI(QObject):
         print("done:    list_dirs=...")
         list_dirs.clear()
         print("done:    list_dirs.clear()")
-        list_dirs.addItems(self.settings.dirs)
+        list_dirs.addItems(self.configs.dirs)
         print("done:    list_dirs.addItems(...)")
 
         self.data.reload()
@@ -222,7 +222,7 @@ class ExifToolGUI(QObject):
         # table.setRowCount(0)
         table.clear()
 
-        tags = self.settings.tags_for_group
+        tags = self.configs.tags_for_group
         tags_count = len(tags)
         table.setColumnCount(tags_count)
         table.setHorizontalHeaderLabels(tags)
@@ -254,7 +254,7 @@ class ExifToolGUI(QObject):
                 if tag == 'SourceFile':
                     item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-                    GetPreviewTask(self.threading_flag, item, value, self.settings.preview_size, self.settings.preview_precision)
+                    GetPreviewTask(self.threading_flag, item, value, self.configs.preview_size, self.configs.preview_precision)
 
                 table.setItem(file_index, column, item)
 
@@ -263,7 +263,7 @@ class ExifToolGUI(QObject):
         # if table.columnWidth(0) > 300:
         #     table.setColumnWidth(0, 300)
 
-        table.verticalHeader().setDefaultSectionSize(self.settings.preview_size)
+        table.verticalHeader().setDefaultSectionSize(self.configs.preview_size)
         table.horizontalHeader().setDefaultSectionSize(160)
         table.setColumnWidth(0, 300)
 
@@ -323,7 +323,7 @@ class ExifToolGUI(QObject):
             if is_datetime:
                 file_index: int = row[column].data(Qt.UserRole)['file_index']
                 tag: str = row[column].data(Qt.UserRole)['tag']
-                dt, _ = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
+                dt, _ = self.data.get_datetime(file_index, tag, value, self.configs.default_timezone)
                 return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
             else:
                 return value
@@ -349,7 +349,7 @@ class ExifToolGUI(QObject):
 
         tab_wedget.currentChanged.connect(self.on_current_changed__tab_for_single)  # EVENT
 
-        for tab_type in self.settings.tags_for_single.keys():
+        for tab_type in self.configs.tags_for_single.keys():
 
             widget: QWidget = QWidget()
             tab_wedget.addTab(widget, tab_type)
@@ -392,10 +392,10 @@ class ExifToolGUI(QObject):
         if title == 'all':
             tags = self.data.cache[file_index].keys()
         else:
-            tags = self.settings.tags_for_single[title]
+            tags = self.configs.tags_for_single[title]
 
         for tag in tags:
-            # delay value acquisition until the editing phase if initialised
+            # delay value acquisition until the editing phase
             metadata_temp[tag] = ""
 
         # if not initial, restore old tags and values
@@ -424,13 +424,13 @@ class ExifToolGUI(QObject):
             tag_list: list = tag.split(':')
 
             # apply max_group_level
-            if len(tag_list) - 2 > self.settings.max_group_level:
+            if len(tag_list) - 2 > self.configs.max_group_level:
                 tag_name = tag_list.pop()
-                tag_list = tag_list[0:self.settings.max_group_level+1]
+                tag_list = tag_list[0:self.configs.max_group_level+1]
                 tag_list.append(tag_name)
 
             # simplify groups
-            if self.settings.simplify_group_level:
+            if self.configs.simplify_group_level:
                 # combine same group names nearby
                 for i in range(0, len(tag_list)-1):
                     if tag_list[i] == '':
@@ -494,7 +494,7 @@ class ExifToolGUI(QObject):
 
     def load_comboBox_functions(self):
         comboBox_functions: QComboBox = self.comboBox_functions
-        for key, value in self.settings.functions.items():
+        for key, value in self.configs.functions.items():
             comboBox_functions.addItem(key, value)
 
         self.reload_groupBox_parameters()
@@ -543,7 +543,7 @@ class ExifToolGUI(QObject):
         option_list: list[QToolButton] = []
         layout.setProperty('userdata', {0: option_list})  # userdata (shallow copy)
 
-        options = self.settings.exiftool_options
+        options = self.configs.exiftool_options
         for option, state in options.items():
             butt = self.init_exiftool_option(option.split('\0')[0], state)
             option_list.append(butt)
@@ -721,7 +721,7 @@ class ExifToolGUI(QObject):
                 option = f"{option_base}\0{dup}"
 
             options[option] = state
-        self.settings.exiftool_options = options
+        self.configs.exiftool_options = options
 
     '''################################################################
     Editting and Functions
@@ -888,9 +888,9 @@ class ExifToolGUI(QObject):
 
     def on_clicked__button_add_dir(self, checked=False):
         dir = QFileDialog().getExistingDirectory(self.main_window)
-        if not dir or dir in self.settings.dirs:
+        if not dir or dir in self.configs.dirs:
             return
-        self.settings.add_dir(dir)
+        self.configs.add_dir(dir)
         self.reload_list_for_dirs()
 
     def on_clicked__button_remove_dir(self, checked=False):
@@ -898,7 +898,7 @@ class ExifToolGUI(QObject):
         if list_dirs_curr is None:
             return
         dir = list_dirs_curr.text()
-        self.settings.remove_dir(dir)
+        self.configs.remove_dir(dir)
         self.reload_list_for_dirs()
 
     def on_clicked__button_save(self, checked=False):
@@ -953,7 +953,7 @@ class ExifToolGUI(QObject):
         tag = item.tableWidget().horizontalHeaderItem(item.column()).text()
         value = item.text()
 
-        self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
+        self.data.edit(file_index, tag, value, save=self.configs.auto_save, normalise=True)
         self.edit_table_for_group([file_index], initial=False)
         self.edit_current_tree_for_single(initial=False)  # enough, if current tab is 'All' new added tag will not be reflected until saved
 
@@ -980,7 +980,7 @@ class ExifToolGUI(QObject):
         # tag: str = item.text(2)  # full tag
         tag = item.data(0, Qt.UserRole)
 
-        self.data.edit(file_index, tag, value, save=self.settings.auto_save, normalise=True)
+        self.data.edit(file_index, tag, value, save=self.configs.auto_save, normalise=True)
         self.edit_table_for_group([file_index], initial=False)
         self.edit_current_tree_for_single(initial=False)  # enough, no reload needed, not possible to add new tag here
 

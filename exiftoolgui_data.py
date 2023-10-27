@@ -14,7 +14,7 @@ import locale
 from exiftool.helper import ExifToolHelper, ExifToolExecuteError
 
 from exiftoolgui_aide import ExifToolGUIAide
-from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_configs import ExifToolGUIConfigs
 from exiftoolgui_log import ExifToolGUILog
 
 
@@ -119,7 +119,7 @@ class ExifToolGUIData:
         '''
         atexit.register(self.exiftool.terminate)
 
-        self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+        self.configs: ExifToolGUIConfigs = ExifToolGUIConfigs.Instance
         self.log: ExifToolGUILog = ExifToolGUILog.Instance
 
         self.cache: list[dict[str, ]] = []
@@ -148,7 +148,7 @@ class ExifToolGUIData:
         self.cache_edited.clear()
         self.cache_failed.clear()
 
-        for file in self.settings.files:
+        for file in self.configs.files:
             metadata = ExifToolGUIData.Get_Metadata(ExifToolGUIData.cache_pool, file)
             self.cache.append(metadata)
             if len(metadata) == 0:
@@ -177,7 +177,7 @@ class ExifToolGUIData:
     def load(self, file: str, tags: list[str] = None) -> dict[str, ]:
 
         # load from file
-        result: dict[str,] = self.read_tags(file, tags, self.settings.exiftool_params, 'load', fix_non_utf8=True)
+        result: dict[str,] = self.read_tags(file, tags, self.configs.exiftool_params, 'load', fix_non_utf8=True)
 
         # handle ExifTool:Warning
         for tag_w, warning in ExifToolGUIData.Get_Item(result, 'ExifTool:Warning', findall=True).items():
@@ -291,7 +291,7 @@ class ExifToolGUIData:
             self.log.append('ExifToolGUI:Info:Save', file, str(unsaved[file_index]))
             # set tags to file
 
-            self.write_tags(file, unsaved[file_index], self.settings.exiftool_params, 'save')
+            self.write_tags(file, unsaved[file_index], self.configs.exiftool_params, 'save')
 
             # check whether file name is changed
             file_new = file
@@ -429,7 +429,7 @@ class ExifToolGUIData:
         return value if editing != True else (value, value_edited, status)
 
     def get_composite(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
-        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag)
+        composite_tag_def = ExifToolGUIData.Get(self.configs.composite_tags, tag)
 
         if composite_tag_def == None:
             return default if editing != True else (default, None, None)
@@ -506,7 +506,7 @@ class ExifToolGUIData:
         return result if editing != True else (result, result_edited, status_overall)
 
     def resolve_composite_value(self, tag: str, value) -> dict[str,]:
-        composite_tag_def = ExifToolGUIData.Get(self.settings.composite_tags, tag)
+        composite_tag_def = ExifToolGUIData.Get(self.configs.composite_tags, tag)
         if composite_tag_def:
             pattern = composite_tag_def['pattern']
 
@@ -542,7 +542,7 @@ class ExifToolGUIData:
 
     def resolve_conditional_tag(self, file_index: int, tag: str) -> str:
         # condition_tag_def = self.settings.condition_tags.get(tag, None)
-        condition_tag_defs = ExifToolGUIData.Get(self.settings.conditional_tags, tag)
+        condition_tag_defs = ExifToolGUIData.Get(self.configs.conditional_tags, tag)
         if condition_tag_defs:
             for candidate_tag, tag_def in condition_tag_defs.items():
 
@@ -613,7 +613,7 @@ class ExifToolGUIData:
             return type_evaled == datetime
             # return True if tag.startswith(f"({datetime.__name__})") else False
 
-        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag)
+        detatime_tag_def = ExifToolGUIData.Get(self.configs.datetime_tags, tag)
         return (detatime_tag_def != None)
 
     def normalise_datetime(self, file_index: int, tag: str, value: str = None) -> str:
@@ -634,7 +634,7 @@ class ExifToolGUIData:
         if value:
             dt, len_subsec = ExifToolGUIAide.Str_to_Datetime(value)
             if dt and dt.tzinfo == None:
-                detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r)
+                detatime_tag_def = ExifToolGUIData.Get(self.configs.datetime_tags, tag_r)
                 if detatime_tag_def:
                     # some tags may implicit specify timezone info as UTC, i.e. QuickTime:CreateDate
                     as_utc: bool = detatime_tag_def.get('as_utc', None)
@@ -666,7 +666,7 @@ class ExifToolGUIData:
             return None
 
         tag_r = self.resolve_conditional_tag(file_index, tag) if tag.startswith('?') else tag
-        detatime_tag_def = ExifToolGUIData.Get(self.settings.datetime_tags, tag_r)
+        detatime_tag_def = ExifToolGUIData.Get(self.configs.datetime_tags, tag_r)
 
         if detatime_tag_def:
 
@@ -802,7 +802,7 @@ class ExifToolGUIData:
         result_b: dict[str, ] = self.read_tags(
             file,
             tags_garbled_n,
-            self.settings.exiftool_params + ['-b'],
+            self.configs.exiftool_params + ['-b'],
             'fix_non_utf8_values'
         )
 

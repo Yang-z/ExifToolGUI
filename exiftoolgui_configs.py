@@ -4,43 +4,44 @@ import json
 import os
 
 
-class ExifToolGUISettings:
-    _instance: 'ExifToolGUISettings' = None
+class ExifToolGUIConfigs:
+    _instance: 'ExifToolGUIConfigs' = None
 
     @classmethod
     @property
-    def Instance(cls) -> 'ExifToolGUISettings':
+    def Instance(cls) -> 'ExifToolGUIConfigs':
         if cls._instance == None:
             cls._instance = cls()
         return cls._instance
 
     def __init__(self) -> None:
-        self.source_file = './config/exiftoolgui_settings.json'
+        self.source_file = './configs/exiftoolgui_configs.json'
         self.raw: dict = None
+        self.user_settings: dict = None
         self.load()
 
     def __getitem__(self, key):
         return self.raw[key]
 
     @property
-    def config_ui(self) -> str:
-        return self.raw['config']['ui']
+    def file_ui(self) -> str:
+        return self.raw['config_files']['ui']
     
     @property
-    def config_exiftool_options(self) -> str:
-        return self.raw['config']['exiftool_options']
+    def file_exiftool_option_defs(self) -> str:
+        return self.raw['config_files']['exiftool_option_defs']
 
     @property
     def dirs(self) -> list:
-        return self.raw['dirs']
+        return self.user_settings['dirs']
 
     @property
     def tags_for_group(self) -> list:
-        return self.raw['tags_for_group']
+        return self.user_settings['tags_for_group']
 
     @property
     def tags_for_single(self) -> dict[str, list[str]]:
-        return self.raw['tags_for_single']
+        return self.user_settings['tags_for_single']
 
     @property
     def files(self) -> list:
@@ -60,11 +61,11 @@ class ExifToolGUISettings:
 
     @property
     def exiftool_options(self) -> dict[str, str]:
-        return self.raw['exiftool_options']
+        return self.user_settings['exiftool_options']
 
     @exiftool_options.setter
     def exiftool_options(self, value):
-        self.raw['exiftool_options'] = value
+        self.user_settings['exiftool_options'] = value
         self.save()
 
     @property
@@ -77,27 +78,27 @@ class ExifToolGUISettings:
 
     @property
     def auto_save(self) -> bool:
-        return self.raw['exiftoolgui_options']['auto_save']
+        return self.user_settings['exiftoolgui_options']['auto_save']
 
     @property
     def max_group_level(self) -> int:
-        return self.raw['exiftoolgui_options']['max_group_level']
+        return self.user_settings['exiftoolgui_options']['max_group_level']
 
     @property
     def simplify_group_level(self) -> bool:
-        return self.raw['exiftoolgui_options']['simplify_group_level']
+        return self.user_settings['exiftoolgui_options']['simplify_group_level']
 
     @property
     def default_timezone(self) -> str:
-        return self.raw['exiftoolgui_options']['default_timezone']
+        return self.user_settings['exiftoolgui_options']['default_timezone']
 
     @property
     def preview_size(self) -> int:
-        return self.raw['exiftoolgui_options']['preview_size']
+        return self.user_settings['exiftoolgui_options']['preview_size']
 
     @property
     def preview_precision(self) -> int:
-        return self.raw['exiftoolgui_options']['preview_precision']
+        return self.user_settings['exiftoolgui_options']['preview_precision']
 
     '''################################################################
     functions
@@ -131,9 +132,12 @@ class ExifToolGUISettings:
         with open(self.source_file, encoding='utf-8') as f:
             self.raw: dict = json.load(f, object_pairs_hook=OrderedDict)
 
+        with open(self.raw['config_files']['user_settings'], encoding='utf-8') as f:
+            self.user_settings: dict = json.load(f, object_pairs_hook=OrderedDict)
+
     def save(self) -> dict:
-        with open(self.source_file, 'w', encoding='utf-8') as f:
-            json.dump(self.raw, f, ensure_ascii=False, indent=2)
+        with open(self.raw['config_files']['user_settings'], 'w', encoding='utf-8') as f:
+            json.dump(self.user_settings, f, ensure_ascii=False, indent=2)
 
     def add_dir(self, dir: str):
         self.dirs.append(dir)
@@ -145,6 +149,6 @@ class ExifToolGUISettings:
 
 
 if __name__ == "__main__":
-    settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+    configs: ExifToolGUIConfigs = ExifToolGUIConfigs.Instance
 
-    print(settings.files)
+    print(configs.files)

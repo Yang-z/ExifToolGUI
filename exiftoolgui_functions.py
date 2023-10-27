@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import os
 
 from exiftoolgui_aide import ExifToolGUIAide
-from exiftoolgui_settings import ExifToolGUISettings
+from exiftoolgui_configs import ExifToolGUIConfigs
 from exiftoolgui_data import ExifToolGUIData
 
 
@@ -25,7 +25,7 @@ class ExifToolGUIFuncs:
 
     def __init__(self) -> None:
         self.data: ExifToolGUIData = ExifToolGUIData.Instance
-        self.settings: ExifToolGUISettings = ExifToolGUISettings.Instance
+        self.configs: ExifToolGUIConfigs = ExifToolGUIConfigs.Instance
 
         self.funcs = {
             'rename': self.rename,
@@ -115,7 +115,7 @@ class ExifToolGUIFuncs:
         def sort_value(file_index: int):
             value = self.data.get(file_index, tag, default='')
             if is_datetime:
-                dt, _ = self.data.get_datetime(file_index, tag, value, self.settings.default_timezone)
+                dt, _ = self.data.get_datetime(file_index, tag, value, self.configs.default_timezone)
                 return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
             else:
                 return value
