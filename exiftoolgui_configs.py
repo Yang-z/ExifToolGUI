@@ -26,7 +26,7 @@ class ExifToolGUIConfigs:
     @property
     def file_ui(self) -> str:
         return self.raw['config_files']['ui']
-    
+
     @property
     def file_exiftool_option_defs(self) -> str:
         return self.raw['config_files']['exiftool_option_defs']
@@ -137,7 +137,7 @@ class ExifToolGUIConfigs:
 
     def save(self) -> dict:
         with open(self.raw['config_files']['user_settings'], 'w', encoding='utf-8') as f:
-            json.dump(self.user_settings, f, ensure_ascii=False, indent=2)
+            json.dump(self.user_settings, f, ensure_ascii=False, indent=4)
 
     def add_dir(self, dir: str):
         self.dirs.append(dir)

@@ -388,7 +388,7 @@ class ExifToolGUI(QObject):
         title = tab_wedget.tabText(tab_wedget.currentIndex())
 
         metadata_temp: dict[str,] = {}
-        
+
         if title == 'all':
             tags = self.data.cache[file_index].keys()
         else:
@@ -930,7 +930,7 @@ class ExifToolGUI(QObject):
         for file_index in file_indexes:
             self.data.rebuild(file_index)
         # self.set_table_for_group(file_indexes)
-        self.edit_table_for_group(file_indexes,initial=False)
+        self.edit_table_for_group(file_indexes, initial=False)
         self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):

@@ -5,6 +5,7 @@ import re
 
 from exiftoolgui_configs import ExifToolGUIConfigs
 
+
 class ExifToolOptionDefs:
     _instance: 'ExifToolOptionDefs' = None
 
@@ -47,7 +48,7 @@ class ExifToolOptionDefs:
             self.raw = json.load(f, object_pairs_hook=OrderedDict)
 
     def get_options_non_tag_name(self):
-        option_list: OrderedDict[str,str]={}
+        option_list: OrderedDict[str, str] = {}
 
         option_defs: OrderedDict[str, dict[str, str]] = self.raw['options']
         for cat in option_defs.values():
@@ -55,7 +56,7 @@ class ExifToolOptionDefs:
                 if hint.startswith('-TAG') or hint.startswith('--TAG'):
                     continue
                 option_list[hint] = describe
-        
+
         return option_list
 
     def find_option(self, option: str):
@@ -84,7 +85,7 @@ class ExifToolOptionDefs:
 
         if match:
             result = match.group(0)
-            # 
+            #
             pattern_main_list: str = r"^-list(?:w|f|wf|g|d|x)"
             match_list = re.match(pattern_main_list, result)
             if match_list:

@@ -1,209 +1,209 @@
 {
-  "config_files": {
-    "ui": "./configs/exiftoolgui_mainwindow.ui",
-    "exiftool_option_defs": "./configs/exiftool_option_defs.json",
-    "user_settings": "./configs/exiftoolgui_settings.json"
-  },
-  "functions": {
-    "rename": {
-      "format": {
-        "type": "format",
-        "default": "<?Timeline> <File:FileName>[:].<File:FileTypeExtension>"
-      }
+    "config_files": {
+        "ui": "./configs/exiftoolgui_mainwindow.ui",
+        "exiftool_option_defs": "./configs/exiftool_option_defs.json",
+        "user_settings": "./configs/exiftoolgui_settings.json"
     },
-    "set_value": {
-      "to_tags": {
-        "type": "tag",
-        "default": "Exif:OffsetTimeOriginal"
-      },
-      "value": {
-        "type": "str",
-        "default": "+08:00"
-      }
+    "functions": {
+        "rename": {
+            "format": {
+                "type": "format",
+                "default": "<?Timeline> <File:FileName>[:].<File:FileTypeExtension>"
+            }
+        },
+        "set_value": {
+            "to_tags": {
+                "type": "tag",
+                "default": "Exif:OffsetTimeOriginal"
+            },
+            "value": {
+                "type": "str",
+                "default": "+08:00"
+            }
+        },
+        "copy_value": {
+            "from_tag": {
+                "type": "tag",
+                "default": "(datetime)File:FileName"
+            },
+            "to_tags": {
+                "type": "tag",
+                "default": "?Timeline ?ModifyDate"
+            },
+            "is_datetime": {
+                "type": "bool",
+                "default": true
+            },
+            "default_timezone": {
+                "type": "timezone",
+                "default": "local"
+            }
+        },
+        "shift_datetime": {
+            "tag": {
+                "type": "tag",
+                "default": "?Timeline"
+            },
+            "to_datetime": {
+                "type": "datetime",
+                "default": ""
+            },
+            "by_timedelt": {
+                "type": "timedelt",
+                "default": ""
+            },
+            "default_timezone": {
+                "type": "timezone",
+                "default": "local"
+            }
+        },
+        "reverse_order": {
+            "tag": {
+                "type": "tag",
+                "default": "?Timeline"
+            }
+        }
     },
-    "copy_value": {
-      "from_tag": {
-        "type": "tag",
-        "default": "(datetime)File:FileName"
-      },
-      "to_tags": {
-        "type": "tag",
-        "default": "?Timeline ?ModifyDate"
-      },
-      "is_datetime": {
-        "type": "bool",
-        "default": true
-      },
-      "default_timezone": {
-        "type": "timezone",
-        "default": "local"
-      }
+    "composite_tags": {
+        "&EXIF:DateTimeOriginal": {
+            "format": "(<EXIF:DateTimeOriginal>)(.<EXIF:SubSecTimeOriginal>)(<EXIF:OffsetTimeOriginal>)",
+            "pattern": "(?P<EXIF:DateTimeOriginal>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeOriginal>\\d+))?(?: *)(?P<EXIF:OffsetTimeOriginal>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+        },
+        "&EXIF:CreateDate": {
+            "format": "(<EXIF:CreateDate>)(.<EXIF:SubSecTimeDigitized>)(<EXIF:OffsetTimeDigitized>)",
+            "pattern": "(?P<EXIF:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeDigitized>\\d+))?(?: *)(?P<EXIF:OffsetTimeDigitized>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+        },
+        "&EXIF:ModifyDate": {
+            "format": "(<EXIF:ModifyDate>)(.<EXIF:SubSecTime>)(<EXIF:OffsetTime>)",
+            "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?: *)(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
+        },
+        "&EXIF:GPSDateTime": {
+            "format": "(<EXIF:GPSDateStamp> <EXIF:GPSTimeStamp>+00:00)",
+            "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
+        },
+        "&QuickTime:CreateDate": {
+            "format": "(<QuickTime:CreateDate>+00:00)",
+            "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
+        },
+        "&QuickTime:ModifyDate": {
+            "format": "(<QuickTime:ModifyDate>+00:00)",
+            "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
+        },
+        "&QuickTime:GPSDateTime": {
+            "format": "(<QuickTime:GPSDateTime> <QuickTime:GPSTimeStamp>+00:00)",
+            "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
+        }
     },
-    "shift_datetime": {
-      "tag": {
-        "type": "tag",
-        "default": "?Timeline"
-      },
-      "to_datetime": {
-        "type": "datetime",
-        "default": ""
-      },
-      "by_timedelt": {
-        "type": "timedelt",
-        "default": ""
-      },
-      "default_timezone": {
-        "type": "timezone",
-        "default": "local"
-      }
+    "conditional_tags": {
+        "?Timeline": {
+            "&EXIF:DateTimeOriginal": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)jpe?g|tiff?|png|heic"
+            },
+            "&QuickTime:CreateDate": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)mp4"
+            }
+        },
+        "?ModifyDate": {
+            "&EXIF:ModifyDate": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)jpe?g|tiff?|png|heic"
+            },
+            "&QuickTime:ModifyDate": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)mp4"
+            }
+        },
+        "?GPSTimeStamp": {
+            "&EXIF:GPSDateTime": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)jpe?g|tiff?|png|heic"
+            },
+            "&QuickTime:GPSDateTime": {
+                "condition": "<File:FileTypeExtension>",
+                "pattern": "(?i)mp4"
+            }
+        }
     },
-    "reverse_order": {
-      "tag": {
-        "type": "tag",
-        "default": "?Timeline"
-      }
+    "datetime_tags": {
+        "?Timeline": {},
+        "?ModifyDate": {},
+        "?GPSDateTime": {},
+        "&EXIF:DateTimeOriginal": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        },
+        "EXIF:DateTimeOriginal": {
+            "as_utc": false,
+            "is_timezone_explicit": false,
+            "support_subsec": false
+        },
+        "&EXIF:CreateDate": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        },
+        "EXIF:CreateDate": {
+            "as_utc": false,
+            "is_timezone_explicit": false,
+            "support_subsec": false
+        },
+        "&EXIF:ModifyDate": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        },
+        "EXIF:ModifyDate": {
+            "as_utc": false,
+            "is_timezone_explicit": false,
+            "support_subsec": false
+        },
+        "&EXIF:GPSDateTime": {
+            "as_utc": true,
+            "is_timezone_explicit": true,
+            "support_subsec": false
+        },
+        "&QuickTime:CreateDate": {
+            "as_utc": true,
+            "is_timezone_explicit": true,
+            "support_subsec": false
+        },
+        "QuickTime:CreateDate": {
+            "as_utc": true,
+            "is_timezone_explicit": false,
+            "support_subsec": false
+        },
+        "&QuickTime:ModifyDate": {
+            "as_utc": true,
+            "is_timezone_explicit": true,
+            "support_subsec": false
+        },
+        "QuickTime:ModifyDate": {
+            "as_utc": true,
+            "is_timezone_explicit": false,
+            "support_subsec": false
+        },
+        "&QuickTime:GPSDateTime": {
+            "as_utc": true,
+            "is_timezone_explicit": true,
+            "support_subsec": false
+        },
+        "File:FileModifyDate": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        },
+        "File:FileAccessDate": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        },
+        "File:FileCreateDate": {
+            "as_utc": false,
+            "is_timezone_explicit": true,
+            "support_subsec": true
+        }
     }
-  },
-  "composite_tags": {
-    "&EXIF:DateTimeOriginal": {
-      "format": "(<EXIF:DateTimeOriginal>)(.<EXIF:SubSecTimeOriginal>)(<EXIF:OffsetTimeOriginal>)",
-      "pattern": "(?P<EXIF:DateTimeOriginal>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeOriginal>\\d+))?(?: *)(?P<EXIF:OffsetTimeOriginal>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
-    },
-    "&EXIF:CreateDate": {
-      "format": "(<EXIF:CreateDate>)(.<EXIF:SubSecTimeDigitized>)(<EXIF:OffsetTimeDigitized>)",
-      "pattern": "(?P<EXIF:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTimeDigitized>\\d+))?(?: *)(?P<EXIF:OffsetTimeDigitized>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
-    },
-    "&EXIF:ModifyDate": {
-      "format": "(<EXIF:ModifyDate>)(.<EXIF:SubSecTime>)(<EXIF:OffsetTime>)",
-      "pattern": "(?P<EXIF:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2})(?:\\.(?P<EXIF:SubSecTime>\\d+))?(?: *)(?P<EXIF:OffsetTime>[-+]\\d{2}(?:[:]?\\d{2})?(?:[:]?\\d{2}(?:\\.\\d+)?)?)?"
-    },
-    "&EXIF:GPSDateTime": {
-      "format": "(<EXIF:GPSDateStamp> <EXIF:GPSTimeStamp>+00:00)",
-      "pattern": "(?P<EXIF:GPSDateStamp>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<EXIF:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
-    },
-    "&QuickTime:CreateDate": {
-      "format": "(<QuickTime:CreateDate>+00:00)",
-      "pattern": "(?P<QuickTime:CreateDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
-    },
-    "&QuickTime:ModifyDate": {
-      "format": "(<QuickTime:ModifyDate>+00:00)",
-      "pattern": "(?P<QuickTime:ModifyDate>\\d{4}[:]?\\d{2}[:]?\\d{2}[ ]\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)(?: *)(?:[+-]00:00)?"
-    },
-    "&QuickTime:GPSDateTime": {
-      "format": "(<QuickTime:GPSDateTime> <QuickTime:GPSTimeStamp>+00:00)",
-      "pattern": "(?P<QuickTime:GPSDateTime>\\d{4}[:]?\\d{2}[:]?\\d{2})[ ](?P<QuickTime:GPSTimeStamp>\\d{2}[:]?\\d{2}[:]?\\d{2}(?:\\.\\d+)?)?(?: *)(?:[+-]00:00)?"
-    }
-  },
-  "conditional_tags": {
-    "?Timeline": {
-      "&EXIF:DateTimeOriginal": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png|heic"
-      },
-      "&QuickTime:CreateDate": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)mp4"
-      }
-    },
-    "?ModifyDate": {
-      "&EXIF:ModifyDate": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png|heic"
-      },
-      "&QuickTime:ModifyDate": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)mp4"
-      }
-    },
-    "?GPSTimeStamp": {
-      "&EXIF:GPSDateTime": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)jpe?g|tiff?|png|heic"
-      },
-      "&QuickTime:GPSDateTime": {
-        "condition": "<File:FileTypeExtension>",
-        "pattern": "(?i)mp4"
-      }
-    }
-  },
-  "datetime_tags": {
-    "?Timeline": {},
-    "?ModifyDate": {},
-    "?GPSDateTime": {},
-    "&EXIF:DateTimeOriginal": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    },
-    "EXIF:DateTimeOriginal": {
-      "as_utc": false,
-      "is_timezone_explicit": false,
-      "support_subsec": false
-    },
-    "&EXIF:CreateDate": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    },
-    "EXIF:CreateDate": {
-      "as_utc": false,
-      "is_timezone_explicit": false,
-      "support_subsec": false
-    },
-    "&EXIF:ModifyDate": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    },
-    "EXIF:ModifyDate": {
-      "as_utc": false,
-      "is_timezone_explicit": false,
-      "support_subsec": false
-    },
-    "&EXIF:GPSDateTime": {
-      "as_utc": true,
-      "is_timezone_explicit": true,
-      "support_subsec": false
-    },
-    "&QuickTime:CreateDate": {
-      "as_utc": true,
-      "is_timezone_explicit": true,
-      "support_subsec": false
-    },
-    "QuickTime:CreateDate": {
-      "as_utc": true,
-      "is_timezone_explicit": false,
-      "support_subsec": false
-    },
-    "&QuickTime:ModifyDate": {
-      "as_utc": true,
-      "is_timezone_explicit": true,
-      "support_subsec": false
-    },
-    "QuickTime:ModifyDate": {
-      "as_utc": true,
-      "is_timezone_explicit": false,
-      "support_subsec": false
-    },
-    "&QuickTime:GPSDateTime": {
-      "as_utc": true,
-      "is_timezone_explicit": true,
-      "support_subsec": false
-    },
-    "File:FileModifyDate": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    },
-    "File:FileAccessDate": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    },
-    "File:FileCreateDate": {
-      "as_utc": false,
-      "is_timezone_explicit": true,
-      "support_subsec": true
-    }
-  }
 }
