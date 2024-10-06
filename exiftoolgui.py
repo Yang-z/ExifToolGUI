@@ -27,9 +27,16 @@ class ExifToolGUI(QObject):
         super().__init__()
 
         '''
-        when reloading, let slots refuse to respond to expired signals
+        When reloading, let slots refuse to respond to expired signals.
         '''
         self.threading_flag: int = 0
+
+        '''
+        QUiLoader must be instantiated before QApplication!!!
+        It could be a bug of PySide6. (PySide6==6.7.3)
+        ref: https://stackoverflow.com/questions/77736041/pyside6-quiloader-doesnt-show-window
+        '''
+        ui_Loader = QUiLoader()
 
         self.app: QApplication = QApplication(sys.argv)
         # apply_stylesheet(self.app, theme='dark_teal.xml')
@@ -38,12 +45,18 @@ class ExifToolGUI(QObject):
         self.data: ExifToolGUIData = ExifToolGUIData.Instance
         self.exiftool_option_defs = ExifToolOptionDefs.Instance
 
-        self.main_window: QMainWindow = self.load_main_window()
+        '''
+        load main window
+        A QWidget must be constructed after a QApplication.
+        '''
+        ui_file = QFile(self.configs.file_ui)
+        self.main_window: QMainWindow = ui_Loader.load(ui_file)
+        ui_file.close()
 
         '''
-        After any value in a table is modified, the ref would dead
+        After any value in a table is modified, the ref would dead.
         "RuntimeError: Internal C++ object (PySide6.QtWidgets.QTableWidget) already deleted."
-        It could be a bug of PySide6.
+        It could be a bug of PySide6. (PySide6==6.5.1.1 or earlier, untested for newer versions)
         use @property to get dynamically
         '''
         # self.table_for_group:QTableWidget = self.main_window.findChild(QTableWidget, 'table_for_group')
@@ -144,13 +157,6 @@ class ExifToolGUI(QObject):
     def exiftool_options_editor_description(self) -> QTextBrowser:
         return self.main_window.findChild(QTextBrowser, 'exiftool_options_editor_description')
 
-    def load_main_window(self) -> QMainWindow:
-        ui_file = QFile(self.configs.file_ui)
-        loader = QUiLoader()
-        main_window = loader.load(ui_file)
-        ui_file.close()
-        return main_window
-
     '''################################################################
     UI
     ################################################################'''
@@ -176,6 +182,7 @@ class ExifToolGUI(QObject):
     def adjust_main_window(self):
         # this should be done by designer, but...
         # ref: https://stackoverflow.com/questions/55539617/qt-designer-auto-fitting-the-tablewidget-directly-from-the-designer
+
         # self.table_for_group.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table_for_group.horizontalHeader().setSectionsMovable(True)
         # self.table_for_group.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -627,7 +634,8 @@ class ExifToolGUI(QObject):
 
         # button_delete
         if button and update_button:
-            self.exiftool_options_editor_delete.setEnabled(False if state == 'auto' or state == 'forced' or state == 'on' else True)
+            self.exiftool_options_editor_delete.setEnabled(
+                False if state == 'auto' or state == 'forced' or state == 'on' else True)
 
     def init_exiftool_option(self, option, state) -> QToolButton:
         button = QToolButton()
@@ -736,11 +744,11 @@ class ExifToolGUI(QObject):
                 file_indexes.append(file_index)
         return file_indexes
 
-    def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False, initial: bool = False):
+    def edit_tag(self, file_index: int, tag: str, value: str, strict: bool = False, initial: bool = False) -> tuple[str, QColor]:
         value_saved, value_edited, status = self.data.get(file_index, tag, default="", strict=strict, editing=True)
         value_saved = str(value_saved)
 
-        colour = None
+        colour: Qt.GlobalColor = None
         show_value = None
 
         if value_edited != None:
@@ -756,9 +764,22 @@ class ExifToolGUI(QObject):
                 show_value = value_edited
         else:
             if value != value_saved and not initial:
-                colour = Qt.darkGreen
+                colour = Qt.blue
             show_value = value_saved
-        return show_value, colour
+
+        # blend colour
+        colour_blended: QColor = None
+        if colour:
+            colour_fg: QColor = QColor(colour)
+            colour_bg: QColor = QApplication.palette().color(QPalette.ColorRole.Window)
+            colour_blended = QColor(
+                colour_fg.red()*0.5 + colour_bg.red()*0.5,
+                colour_fg.green()*0.5 + colour_bg.green()*0.5,
+                colour_fg.blue()*0.5 + colour_bg.blue()*0.5,
+                colour_fg.alpha()*0.5 + colour_bg.alpha()*0.5
+            )
+
+        return show_value, colour_blended
 
     def edit_table_for_group(self, file_indexs: list[int] = None, initial: bool = False):
         table = self.table_for_group
@@ -905,7 +926,9 @@ class ExifToolGUI(QObject):
         with QMutexLocker(ExifToolGUI.dataLocker):
             self.data.save()
         self.edit_table_for_group(initial=False)
-        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
+
+        self.reload_current_tree_for_single(initial=False)
+        # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_clicked__button_reset(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
@@ -914,7 +937,9 @@ class ExifToolGUI(QObject):
                 self.data.reset(file_index)
         # self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes, initial=True)
-        self.edit_current_tree_for_single(initial=True)  # enough, no reload needed
+
+        self.edit_current_tree_for_single(initial=True)
+        # enough, no reload needed
 
     def on_clicked__button_refresh(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
@@ -923,7 +948,9 @@ class ExifToolGUI(QObject):
                 self.data.refresh(file_index)
         # self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes, initial=False)
-        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
+
+        self.reload_current_tree_for_single(initial=False)
+        # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_clicked__button_rebuild(self):
         file_indexes: list[int] = self.get_selected_file_indexes()
@@ -931,7 +958,9 @@ class ExifToolGUI(QObject):
             self.data.rebuild(file_index)
         # self.set_table_for_group(file_indexes)
         self.edit_table_for_group(file_indexes, initial=False)
-        self.reload_current_tree_for_single(initial=False)  # reflect tags deleted and added for 'All', but bring extra cost for others
+
+        self.reload_current_tree_for_single(initial=False)
+        # reflect tags deleted and added for 'All', but bring extra cost for others
 
     def on_current_item_changed__table_for_group(self, current: QTableWidgetItem, previous: QTableWidgetItem):
         # print(f"{current.row()}, {current.column()}")
@@ -955,7 +984,9 @@ class ExifToolGUI(QObject):
 
         self.data.edit(file_index, tag, value, save=self.configs.auto_save, normalise=True)
         self.edit_table_for_group([file_index], initial=False)
-        self.edit_current_tree_for_single(initial=False)  # enough, if current tab is 'All' new added tag will not be reflected until saved
+
+        self.edit_current_tree_for_single(initial=False)
+        # enough, if current tab is 'All' new added tag will not be reflected until saved
 
     def on_current_changed__tab_for_single(self, index):
         if self.table_for_group.currentItem() == None:
@@ -982,7 +1013,9 @@ class ExifToolGUI(QObject):
 
         self.data.edit(file_index, tag, value, save=self.configs.auto_save, normalise=True)
         self.edit_table_for_group([file_index], initial=False)
-        self.edit_current_tree_for_single(initial=False)  # enough, no reload needed, not possible to add new tag here
+
+        self.edit_current_tree_for_single(initial=False)
+        # enough, no reload needed, not possible to add new tag here
 
     def on_currentIndexChanged__comboBox_functions(self, index):
         self.reload_groupBox_parameters()
@@ -995,7 +1028,9 @@ class ExifToolGUI(QObject):
 
         ExifToolGUIFuncs.Exec(func, args)
         self.edit_table_for_group(args['file_indexes'], initial=False)
-        self.edit_current_tree_for_single(initial=False)  # enough, if current tab is 'All' new added tag will not be reflected until saved
+
+        self.edit_current_tree_for_single(initial=False)
+        # enough, if current tab is 'All' new added tag will not be reflected until saved
 
     # memu_exiftool
 
@@ -1107,7 +1142,9 @@ class ExifToolGUI(QObject):
 
         # self.set_table_for_group([file_index])
         self.edit_table_for_group([file_index], initial=True)
-        self.reload_current_tree_for_single(ref=file_index, initial=True)  # nessary, but bring extra cost when title is not 'All'
+
+        self.reload_current_tree_for_single(ref=file_index, initial=True)
+        # nessary, but bring extra cost when title is not 'All'
 
     def on_previewLoaded(self, item: QTableWidgetItem, pixmap: QPixmap, flag: int):
 
