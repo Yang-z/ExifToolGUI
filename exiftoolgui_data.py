@@ -531,7 +531,8 @@ class ExifToolGUIData:
                 match_dict_n = match.groupdict()
 
                 # return the original keys' names
-                match_dict = {key.replace('__COLON__', ':'): value if value != None else '' for key, value in match_dict_n.items()}
+                match_dict = {key.replace('__COLON__', ':'): value if value != None else ''
+                              for key, value in match_dict_n.items()}
 
                 return match_dict
         return {}
@@ -654,7 +655,8 @@ class ExifToolGUIData:
                         dt = dt.replace(tzinfo=default_tz)
 
                 if dt.tzinfo == None:
-                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'], f"{tag_r}: naive datetime is returned")
+                    self.log.append("ExifToolGUI:Warnning:get_datetime", self.cache[file_index]['SourceFile'],
+                                    f"{tag_r}: naive datetime is returned")
             return dt, len_subsec
 
         return None, None
@@ -755,7 +757,7 @@ class ExifToolGUIData:
 
         return False
 
-    def fix_non_utf8_values(self, file: str, metadata: dict[str, str], encodings: list[str] = []) -> None:
+    def fix_non_utf8_values(self, file: str, metadata: dict[str, str], encodings: list[str] = None) -> None:
         '''
         If non-utf8 values exist, Exiftool will not recode these values from local encoding 
         to UTF-8 before passing them to json. That could causes non-utf8 values to be garbled.
@@ -809,8 +811,10 @@ class ExifToolGUIData:
         if not result_b:
             return
 
+        if (encodings == None):
+            encodings = self.configs.non_utf8_encodings
+
         # encoding candidates to decode the original value
-        encodings: list[str] = [locale.getpreferredencoding(False)] + encodings
         for tag_garbled, value_garbled in garbled.items():
 
             maybe_base64: str = ExifToolGUIData.Get(result_b, tag_garbled, strict=True)
@@ -847,7 +851,8 @@ class ExifToolGUIData:
             if fixed == value_garbled:
                 # Is it possible?
                 # fixed value is the same as the value garbled by utf-8!
-                self.log.append('ExifToolGUI:Report:Non-UTF8:', file, f"{tag_garbled}: fixed value is the same as value garbled by utf-8!")
+                self.log.append('ExifToolGUI:Report:Non-UTF8:', file,
+                                f"{tag_garbled}: fixed value is the same as value garbled by utf-8!")
             else:
                 ExifToolGUIData.Set(metadata, tag_garbled, fixed, strict=True)
 

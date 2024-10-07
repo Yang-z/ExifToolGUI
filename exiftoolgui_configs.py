@@ -36,14 +36,6 @@ class ExifToolGUIConfigs:
         return self.user_settings['dirs']
 
     @property
-    def tags_for_group(self) -> list:
-        return self.user_settings['tags_for_group']
-
-    @property
-    def tags_for_single(self) -> dict[str, list[str]]:
-        return self.user_settings['tags_for_single']
-
-    @property
     def files(self) -> list:
         all_files: list = []
         for top in self.dirs:
@@ -100,6 +92,18 @@ class ExifToolGUIConfigs:
     def preview_precision(self) -> int:
         return self.user_settings['exiftoolgui_options']['preview_precision']
 
+    @property
+    def tags_for_group(self) -> list:
+        return self.user_settings['tags_for_group']
+
+    @property
+    def tags_for_single(self) -> dict[str, list[str]]:
+        return self.user_settings['tags_for_single']
+
+    @property
+    def non_utf8_encodings(self) -> list[str]:
+        return self.user_settings['non_utf8_encodings']
+
     '''################################################################
     functions
     ################################################################'''
@@ -135,6 +139,8 @@ class ExifToolGUIConfigs:
         with open(self.raw['config_files']['user_settings'], encoding='utf-8') as f:
             self.user_settings: dict = json.load(f, object_pairs_hook=OrderedDict)
 
+        self.normalize_non_utf8_encodings()
+
     def save(self) -> dict:
         with open(self.raw['config_files']['user_settings'], 'w', encoding='utf-8') as f:
             json.dump(self.user_settings, f, ensure_ascii=False, indent=4)
@@ -147,8 +153,39 @@ class ExifToolGUIConfigs:
         self.dirs.remove(dir)
         self.save()
 
+    def normalize_non_utf8_encodings(self, use_default_name=False):
+        encodings = self.non_utf8_encodings
+
+        import locale
+        import codecs
+
+        # add local encoding
+        encoding_local: str = locale.getpreferredencoding(False)  # cp65001
+        encoding_local_n = codecs.lookup(encoding_local).name  # utf-8
+        if (encoding_local_n != 'utf-8' and encoding_local_n not in encodings):
+            encodings.insert(0, encoding_local_n)
+
+        # use default name
+        if (use_default_name):
+            def safe_codecs_lookup(encoding):
+                try:
+                    return codecs.lookup(encoding).name
+                except LookupError:
+                    return ""
+            encodings[:] = [safe_codecs_lookup(e) for e in encodings if e]
+
+        # remove duplicates and empties
+        encodings_t = []
+        [encodings_t.append(e) for e in encodings if e and e not in encodings_t]
+        encodings[:] = encodings_t
+
+        self.save()
+
 
 if __name__ == "__main__":
     configs: ExifToolGUIConfigs = ExifToolGUIConfigs.Instance
 
     print(configs.files)
+
+    import codecs
+    print(codecs.lookup("iso2022_cn").name)

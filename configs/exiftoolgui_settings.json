@@ -102,5 +102,37 @@
             "Exif:FileSource",
             "Exif:UserComment"
         ]
-    }
+    },
+    "non_utf8_encodings": [
+        "gb2312",
+        "gbk",
+        "gb18030",
+        "big5",
+        "hz",
+        "shift_jis",
+        "euc_jp",
+        "iso2022_jp",
+        "euc_kr",
+        "cp949",
+        "iso2022_cn",
+        "iso2022_kr",
+        "utf-16",
+        "utf-32",
+        "utf-7",
+        "koi8_r",
+        "koi8_u",
+        "mac_greek",
+        "mac_cyrillic",
+        "mac_iceland",
+        "mac_turkish",
+        "windows-1250",
+        "windows-1251",
+        "windows-1253",
+        "windows-1254",
+        "windows-1257",
+        "windows-1258",
+        "iso8859_7",
+        "iso8859_9",
+        "iso8859_13"
+    ]
 }
