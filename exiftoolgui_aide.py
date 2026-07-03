@@ -3,6 +3,7 @@ import re
 
 from datetime import datetime, timezone, timedelta
 
+from exiftoolgui_configs import ExifToolGUIConfigs
 
 class ExifToolGUIAide:
 
@@ -79,8 +80,11 @@ class ExifToolGUIAide:
         # determine which one is recent
         if dt_com and dt_ts:
             dt_now: datetime = datetime.now(timezone.utc)
-            dt_com_tz: datetime = dt_com.astimezone(timezone.utc)
-            # If dt_com is naive, it is presumed to represent time in the system time zone
+            dt_com_tz: datetime = dt_com.astimezone(timezone.utc) if dt_com.tzinfo else dt_com.replace(tzinfo=ExifToolGUIAide.Str_to_Timezone(ExifToolGUIConfigs.Instance.default_timezone))
+            # `astimezone()`:
+            # If dt_com is naive, it is presumed to represent time in the system time zone.
+            # However, windows could faile to handle old date, i.e.(1777, 9, 15, 12, 51, 0, 99999).
+            # So, specify the timezone by user config if `dt_com` is naive.
 
             td_com: timedelta = abs(dt_now - dt_com_tz)
             td_ts: timedelta = abs(dt_now - dt_ts)
