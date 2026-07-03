@@ -32,7 +32,8 @@ class ExifToolGUIFuncs:
             'set_value': self.set_value,
             'copy_value': self.copy_value,
             'shift_datetime': self.shift_datetime,
-            'reverse_order': self.reverse_order
+            'reverse_order': self.reverse_order,
+            'fill_gaps': self.fill_gaps
         }
 
     def rename(self, file_indexes: list[int], ref: int, format: str) -> None:
@@ -40,8 +41,8 @@ class ExifToolGUIFuncs:
         def fill_value(match, file_index: int):
             tag = match.group(1)
             value = self.data.get(file_index, tag)
-            if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag('File:FileName'):
-                value, _ = os.path.splitext(value)
+            # if ExifToolGUIData.Normalise_Tag(tag) == ExifToolGUIData.Normalise_Tag('File:FileName'):
+            #     value, _ = os.path.splitext(value)
 
             start = match.group(2)
             end = match.group(3)
@@ -59,7 +60,7 @@ class ExifToolGUIFuncs:
 
         for i in file_indexes:
             new_name = re.sub(
-                r'<([^>]*)>(?:\[(\d*):(\d*)\])?',
+                r'<([^>]*)>(?:\[(-?\d*):(-?\d*)\])?',
                 lambda match: fill_value(match, i),
                 format
             )
@@ -113,7 +114,7 @@ class ExifToolGUIFuncs:
         is_datetime: bool = self.data.is_datetime(tag)
 
         def sort_value(file_index: int):
-            value = self.data.get(file_index, tag, default='')
+            value = self.data.get_current(file_index, tag, default='')
             if is_datetime:
                 dt, _ = self.data.get_datetime(file_index, tag, value, self.configs.default_timezone)
                 return dt if dt else datetime.min.replace(tzinfo=timezone.utc)
@@ -138,6 +139,57 @@ class ExifToolGUIFuncs:
 
             else:
                 break
+
+    def fill_gaps(self, file_indexes: list[int], ref: int, tag: str, default_timezone: str):
+
+        is_datetime: bool = self.data.is_datetime(tag)
+
+        i: int = 0
+        while (i < len(file_indexes) - 1):
+            dt_i = None
+            len_subsec_i = None
+
+            # datetime or not
+            dt_i = self.data.get_current(file_indexes[i], tag, default=None)
+            if (is_datetime):
+                dt_i, len_subsec_i = self.data.get_datetime(file_indexes[i], tag, dt_i, default_timezone=default_timezone)
+
+            if dt_i == None:
+                i += 1
+                continue
+            else:
+                j: int = i + 1
+                while (j < len(file_indexes)):
+                    dt_j = None
+                    len_subsec_j = None
+
+                    # datetime or not
+                    dt_j = self.data.get_current(file_indexes[j], tag, default=None)
+                    if (is_datetime):
+                        dt_j, len_subsec_j = self.data.get_datetime(
+                            file_indexes[j], tag, dt_j, default_timezone=default_timezone)
+
+                    if dt_j == None:
+                        j += 1
+                        continue
+                    else:
+                        t: int = i + 1
+                        td: timedelta = (dt_j - dt_i) / (j - i)
+                        while (t < j):
+                            td_t = td * (t - i)
+                            dt_t = dt_i + td_t
+
+                            # datetime or not
+                            if (is_datetime):
+                                dt_t_str = self.data.resolve_datetime(
+                                    file_indexes[t], tag, (dt_t, len_subsec_i), default_timezone=default_timezone)
+                            else:
+                                dt_t_str = str(dt_t)
+
+                            self.data.edit(file_indexes[t], tag, dt_t_str)
+                            t += 1
+                        break
+                i = j
 
 
 if __name__ == "__main__":

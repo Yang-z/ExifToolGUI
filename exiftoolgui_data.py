@@ -394,6 +394,10 @@ class ExifToolGUIData:
         if tag_matched != None:
             metadata[tag_matched] = value
 
+    def get_current(self, file_index: int, tag: str, default=None, strict: bool = False) -> str:
+        value, value_edited, status =self.get(file_index, tag, default, strict, True)
+        return value_edited if value_edited != None and status != False else value
+
     def get(self, file_index: int, tag: str, default=None, strict: bool = False, editing: bool = False) -> Union[str, tuple[str, str, bool]]:
         if tag == None:
             return default if editing != True else (default, None, None)

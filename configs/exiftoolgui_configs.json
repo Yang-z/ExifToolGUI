@@ -8,7 +8,7 @@
         "rename": {
             "format": {
                 "type": "format",
-                "default": "<?Timeline> <File:FileName>[:].<File:FileTypeExtension>"
+                "default": "<?Timeline> <File:FileName>[:-4].<File:FileTypeExtension>"
             }
         },
         "set_value": {
@@ -62,7 +62,18 @@
                 "type": "tag",
                 "default": "?Timeline"
             }
+        },
+        "fill_gaps": {
+            "tag": {
+                "type": "tag",
+                "default": "?Timeline"
+            },
+            "default_timezone": {
+                "type": "timezone",
+                "default": "local"
+            }
         }
+
     },
     "composite_tags": {
         "&EXIF:DateTimeOriginal": {

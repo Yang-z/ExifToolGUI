@@ -835,6 +835,8 @@ class ExifToolGUI(QObject):
                     item.setText(1, show_value)
                 if colour:
                     item.setBackground(1, QBrush(colour))
+                else:
+                    item.setBackground(1, QBrush())
             it += 1
 
         tree.blockSignals(False)

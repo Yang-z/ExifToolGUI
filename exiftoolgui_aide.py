@@ -8,7 +8,7 @@ class ExifToolGUIAide:
 
     @staticmethod
     def Str_to_Datetime(datetime_str: str, try_iso: bool = False) -> tuple[datetime, int]:
-        dt = None
+        dt: datetime = None
         len_subsec: int = None
         tz = None
 
@@ -16,62 +16,88 @@ class ExifToolGUIAide:
             return dt, len_subsec
 
         # try common
-        if dt == None:
-            pattern = (
-                r"(?P<year>\d{4})"
-                r"(?:[-:]?(?P<month>\d{2}))?"
-                r"(?:[-:]?(?P<day>\d{2}))?"
+        dt_com: datetime = None
+        len_subsec_com: int = None
+        pattern = (
+            r"(?P<year>\d{4})"
+            r"(?:[-:]?(?P<month>\d{2}))?"
+            r"(?:[-:]?(?P<day>\d{2}))?"
 
-                r"(?:[ _]"
-                r"(?P<hour>\d{2})"
-                r"(?:[-:]?(?P<minute>\d{2}))"
-                r"(?:[-:]?(?P<second>\d{2}))?"
-                r"(?P<second_fractional>\.\d+)?"
-                r")"
+            r"(?:[ _]?"
+            r"(?P<hour>\d{2})"
+            r"(?:[-:]?(?P<minute>\d{2}))"
+            r"(?:[-:]?(?P<second>\d{2}))?"
+            r"(?:[ _.]?(?P<subsec>\d+))?"
+            r")"
 
-                r"(?:[ ]?"
-                r"(?P<tz>[-+]\d{2}(?:[-:]?\d{2})?(?:[-:]?\d{2}(?:\.\d+)?)?)"
-                r")?"
-            )
+            r"(?:[ ]?"
+            r"(?P<tz>[-+]\d{2}(?:[-:]?\d{2})?(?:[-:]?\d{2}(?:\.\d+)?)?)"
+            r")?"
+        )
 
-            match = re.search(pattern, datetime_str)
-            if match:
-                # tz = default_tz
-                if match.group('tz'):
-                    tz = ExifToolGUIAide.Str_to_Timezone(match.group('tz'))
+        match = re.search(pattern, datetime_str)
+        if match:
+            # tz = default_tz
+            if match.group('tz'):
+                tz = ExifToolGUIAide.Str_to_Timezone(match.group('tz'))
 
-                try:
-                    dt = datetime(
-                        year=int(match.group('year')),
-                        month=int(match.group('month')) if match.group('month') else 1,
-                        day=int(match.group('day')) if match.group('day') else 1,
-                        hour=int(match.group('hour')) if match.group('hour') else 0,
-                        minute=int(match.group('minute')) if match.group('minute') else 0,
-                        second=int(match.group('second')) if match.group('second') else 0,
-                        microsecond=int(float(match.group('second_fractional'))*1000000) if match.group('second_fractional') else 0,
-                        # microsecond is the highest precision of python datetime,
-                        # so it wiil lost precision when dealing with some metadate with higher precision,
-                        # such as windows file system timestamp, wich is 100ns(0.1ms).
-                        tzinfo=tz,
-                    )
-                except Exception as e:
-                    print(e)
+            try:
+                dt_com = datetime(
+                    year=int(match.group('year')),
+                    month=int(match.group('month')) if match.group('month') else 1,
+                    day=int(match.group('day')) if match.group('day') else 1,
+                    hour=int(match.group('hour')) if match.group('hour') else 0,
+                    minute=int(match.group('minute')) if match.group('minute') else 0,
+                    second=int(match.group('second')) if match.group('second') else 0,
+                    microsecond=int(float(match.group('subsec')) / pow(10, len(match.group('subsec'))-6)
+                                    ) if match.group('subsec') else 0,
+                    # microsecond is the highest precision of python datetime,
+                    # so it wiil lost precision when dealing with some metadate with higher precision,
+                    # such as windows file system timestamp, wich is 100ns(0.1μs).
+                    tzinfo=tz,
+                )
+            except Exception as e:
+                print(e)
 
-                # tell the function Datetime_to_Str() whether to print subsec
-                len_subsec = 0 if not bool(match.group('second_fractional')) else (len(match.group('second_fractional'))-1)
+            # tell the function Datetime_to_Str() whether to print subsec
+            len_subsec_com = 0 if not bool(match.group('subsec')) else (len(match.group('subsec')))
 
         # try timestamp
-        if dt == None:
-            pattern = r'\d{10,16}'
-            match = re.search(pattern, datetime_str)
-            if match:
-                timestamp_str = match.group(0)
-                len_ts = len(timestamp_str)
-                timestamp = int(timestamp_str)
-                if len_ts > 10:
-                    timestamp /= pow(10, len_ts-10)
-                dt = datetime.fromtimestamp(timestamp, timezone.utc)
-                len_subsec = len_ts - 10
+        dt_ts: datetime = None
+        len_subsec_ts: int = None
+        pattern = r'\d{10,16}'
+        match = re.search(pattern, datetime_str)
+        if match:
+            timestamp_str = match.group(0)
+            len_ts = len(timestamp_str)
+            timestamp = int(timestamp_str)
+            if len_ts > 10:
+                timestamp /= pow(10, len_ts-10)
+            dt_ts = datetime.fromtimestamp(timestamp, timezone.utc)
+            len_subsec_ts = len_ts - 10
+
+        # determine which one is recent
+        if dt_com and dt_ts:
+            dt_now: datetime = datetime.now(timezone.utc)
+            dt_com_tz: datetime = dt_com.astimezone(timezone.utc)
+            # If dt_com is naive, it is presumed to represent time in the system time zone
+
+            td_com: timedelta = abs(dt_now - dt_com_tz)
+            td_ts: timedelta = abs(dt_now - dt_ts)
+
+            if td_ts <= td_com:
+                dt = dt_ts
+                len_subsec = len_subsec_ts
+            else:
+                dt = dt_com
+                len_subsec = len_subsec_com
+
+        elif dt_com:
+            dt = dt_com
+            len_subsec = len_subsec_com
+        elif dt_ts:
+            dt = dt_ts
+            len_subsec = len_subsec_ts
 
         # try iso
         if dt == None and try_iso:

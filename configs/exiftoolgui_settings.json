@@ -9,10 +9,11 @@
         "-G:0:1:2:3:4:5:6:7": "forced",
         "-sep ;": "forced",
         "-n": "on",
-        "-U": "on",
+        "-U": "off",
         "-P": "on",
         "-overwrite_original": "on",
-        "-m": "off"
+        "-m": "off",
+        "-x MakerNotes:all": "off"
     },
     "exiftoolgui_options": {
         "auto_save": false,
@@ -100,7 +101,8 @@
             "Exif:LensMake",
             "Exif:LensModel",
             "Exif:FileSource",
-            "Exif:UserComment"
+            "Exif:UserComment",
+            "Exif:Orientation"
         ]
     },
     "non_utf8_encodings": [
